@@ -48,6 +48,7 @@ describe("CheckpointDiffQueryLive", () => {
       readonly fromCheckpointRef: CheckpointRef;
       readonly toCheckpointRef: CheckpointRef;
       readonly cwd: string;
+      readonly ignoreWhitespace: boolean;
     }> = [];
 
     const threadCheckpointContext = makeThreadCheckpointContext({
@@ -68,9 +69,14 @@ describe("CheckpointDiffQueryLive", () => {
           return true;
         }),
       restoreCheckpoint: () => Effect.succeed(true),
-      diffCheckpoints: ({ fromCheckpointRef, toCheckpointRef, cwd }) =>
+      diffCheckpoints: ({ fromCheckpointRef, toCheckpointRef, cwd, ignoreWhitespace }) =>
         Effect.sync(() => {
-          diffCheckpointsCalls.push({ fromCheckpointRef, toCheckpointRef, cwd });
+          diffCheckpointsCalls.push({
+            fromCheckpointRef,
+            toCheckpointRef,
+            cwd,
+            ignoreWhitespace,
+          });
           return "diff patch";
         }),
       deleteCheckpointRefs: () => Effect.void,
@@ -102,6 +108,7 @@ describe("CheckpointDiffQueryLive", () => {
           threadId,
           fromTurnCount: 0,
           toTurnCount: 1,
+          ignoreWhitespace: true,
         });
       }).pipe(Effect.provide(layer)),
     );
@@ -113,6 +120,7 @@ describe("CheckpointDiffQueryLive", () => {
         cwd: "/tmp/workspace",
         fromCheckpointRef: expectedFromRef,
         toCheckpointRef,
+        ignoreWhitespace: true,
       },
     ]);
     expect(result).toEqual({
