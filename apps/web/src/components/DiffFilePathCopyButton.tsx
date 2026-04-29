@@ -1,53 +1,21 @@
 import { CheckIcon, CopyIcon } from "lucide-react";
-import { type MouseEvent as ReactMouseEvent, type RefObject, useRef } from "react";
+import { useRef } from "react";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
 import { Button } from "./ui/button";
-import { anchoredToastManager } from "./ui/toast";
+import {
+  ANCHORED_COPY_TOAST_TIMEOUT_MS,
+  showAnchoredCopyErrorToast,
+  showAnchoredCopySuccessToast,
+} from "./ui/anchoredCopyToast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
-
-const ANCHORED_TOAST_TIMEOUT_MS = 1000;
-
-function showCopySuccessToast(ref: RefObject<HTMLButtonElement | null>) {
-  if (!ref.current) return;
-  anchoredToastManager.add({
-    data: {
-      tooltipStyle: true,
-    },
-    positionerProps: {
-      anchor: ref.current,
-    },
-    timeout: ANCHORED_TOAST_TIMEOUT_MS,
-    title: "Copied!",
-  });
-}
-
-function showCopyErrorToast(ref: RefObject<HTMLButtonElement | null>, error: Error) {
-  if (!ref.current) return;
-  anchoredToastManager.add({
-    data: {
-      tooltipStyle: true,
-    },
-    positionerProps: {
-      anchor: ref.current,
-    },
-    timeout: ANCHORED_TOAST_TIMEOUT_MS,
-    title: "Failed to copy",
-    description: error.message,
-  });
-}
 
 export function DiffFilePathCopyButton({ filePath }: { filePath: string }) {
   const ref = useRef<HTMLButtonElement>(null);
   const { copyToClipboard, isCopied } = useCopyToClipboard<void>({
-    onCopy: () => showCopySuccessToast(ref),
-    onError: (error) => showCopyErrorToast(ref, error),
-    timeout: ANCHORED_TOAST_TIMEOUT_MS,
+    onCopy: () => showAnchoredCopySuccessToast(ref),
+    onError: (error) => showAnchoredCopyErrorToast(ref, error),
+    timeout: ANCHORED_COPY_TOAST_TIMEOUT_MS,
   });
-
-  const onClick = (event: ReactMouseEvent<HTMLButtonElement>) => {
-    event.stopPropagation();
-    copyToClipboard(filePath, undefined);
-  };
 
   return (
     <Tooltip>
@@ -59,8 +27,7 @@ export function DiffFilePathCopyButton({ filePath }: { filePath: string }) {
             size="icon-xs"
             variant="ghost"
             aria-label="Copy file path"
-            title={isCopied ? "Copied" : "Copy file path"}
-            onClick={onClick}
+            onClick={() => copyToClipboard(filePath, undefined)}
           />
         }
       >
