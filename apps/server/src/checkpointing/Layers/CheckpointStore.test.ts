@@ -111,7 +111,7 @@ it.layer(TestLayer)("CheckpointStoreLive", (it) => {
           cwd: tmp,
           fromCheckpointRef,
           toCheckpointRef,
-          ignoreWhitespace: false,
+          ignoreWhitespace: true,
         });
 
         expect(diff).toContain("diff --git");
