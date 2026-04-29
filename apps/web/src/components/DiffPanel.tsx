@@ -623,9 +623,7 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
                     >
                       <FileDiff
                         fileDiff={fileDiff}
-                        renderHeaderMetadata={() =>
-                          filePath ? <DiffFilePathCopyButton filePath={filePath} /> : null
-                        }
+                        renderHeaderMetadata={() => <DiffFilePathCopyButton filePath={filePath} />}
                         options={{
                           diffStyle: diffRenderMode === "split" ? "split" : "unified",
                           lineDiffType: "none",
