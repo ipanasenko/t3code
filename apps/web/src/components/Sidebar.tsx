@@ -85,7 +85,6 @@ import {
 } from "../keybindings";
 import { useShortcutModifierState } from "../shortcutModifierState";
 import { isTerminalFocused } from "../lib/terminalFocus";
-import { sortThreads } from "../lib/threadSort";
 import { isModelPickerOpen } from "../modelPickerVisibility";
 import { selectThreadTerminalUiState, useTerminalUiStateStore } from "../terminalUiStateStore";
 import { isMacPlatform } from "~/lib/utils";
@@ -137,6 +136,7 @@ import {
   searchSidebarThreadsByTitle,
   shouldCreateNewThreadInCurrentProject,
   resolveWorkingStartedAt,
+  sortActiveThreadsForSidebar,
   sortLogicalProjectsForSidebar,
   sortPinnedThreadsForSidebar,
   sortSettledThreadsForSidebar,
@@ -2064,7 +2064,7 @@ export default function Sidebar() {
           )
           .map((thread) => scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id))),
       ),
-      activeThreads: sortThreads(active, sidebarActiveThreadSortOrder),
+      activeThreads: sortActiveThreadsForSidebar(active, sidebarActiveThreadSortOrder),
       // Soonest wake first: "what comes back next" is the shelf's question.
       snoozedThreads: snoozed.toSorted(
         (left, right) =>
@@ -3548,9 +3548,12 @@ export default function Sidebar() {
                     <MenuRadioGroup
                       value={sidebarActiveThreadSortOrder}
                       onValueChange={(value) => {
-                        if (value !== "updated_at" && value !== "created_at") return;
+                        const selectedOption = SIDEBAR_ACTIVE_THREAD_SORT_OPTIONS.find(
+                          (option) => option.value === value,
+                        );
+                        if (selectedOption === undefined) return;
                         updateClientSettings({
-                          sidebarActiveThreadSortOrder: value,
+                          sidebarActiveThreadSortOrder: selectedOption.value,
                         });
                       }}
                     >
