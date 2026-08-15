@@ -85,6 +85,7 @@ import {
 } from "../keybindings";
 import { useShortcutModifierState } from "../shortcutModifierState";
 import { isTerminalFocused } from "../lib/terminalFocus";
+import { sortThreads } from "../lib/threadSort";
 import { isModelPickerOpen } from "../modelPickerVisibility";
 import { selectThreadTerminalUiState, useTerminalUiStateStore } from "../terminalUiStateStore";
 import { isMacPlatform } from "~/lib/utils";
@@ -139,7 +140,6 @@ import {
   sortLogicalProjectsForSidebar,
   sortPinnedThreadsForSidebar,
   sortSettledThreadsForSidebar,
-  sortThreadsForSidebar,
 } from "./Sidebar.logic";
 import { resolveLocalCheckoutBranchMismatch } from "./BranchToolbar.logic";
 import {
@@ -194,10 +194,13 @@ const SETTLED_TAIL_PAGE_COUNT = 25;
 // Keep the v2 key so existing preferences survive the v2-to-default rename.
 const SETTLED_SHELF_EXPANDED_KEY = "t3code:sidebar-v2:settled-expanded";
 const SNOOZED_SHELF_EXPANDED_KEY = "t3code:sidebar-v2:snoozed-expanded";
-const SIDEBAR_THREAD_SORT_LABELS: Record<SidebarThreadSortOrder, string> = {
-  updated_at: "Last user message",
-  created_at: "Created at",
-};
+const SIDEBAR_ACTIVE_THREAD_SORT_OPTIONS = [
+  { value: "updated_at", label: "Last user message" },
+  { value: "created_at", label: "Created at" },
+] as const satisfies ReadonlyArray<{
+  readonly value: SidebarThreadSortOrder;
+  readonly label: string;
+}>;
 
 function compactSidebarTimeLabel(label: string): string {
   if (label === "just now") return "now";
@@ -1693,7 +1696,7 @@ export default function Sidebar() {
   const confirmThreadDelete = useClientSettings((s) => s.confirmThreadDelete);
   const confirmThreadArchive = useClientSettings((s) => s.confirmThreadArchive);
   const sidebarProjectSortOrder = useClientSettings((s) => s.sidebarProjectSortOrder);
-  const sidebarThreadSortOrder = useClientSettings((s) => s.sidebarThreadSortOrder);
+  const sidebarActiveThreadSortOrder = useClientSettings((s) => s.sidebarActiveThreadSortOrder);
   const timestampFormat = useClientSettings((s) => s.timestampFormat);
   const updateClientSettings = useUpdateClientSettings();
   const projectGroupingSettings = useClientSettings(selectProjectGroupingSettings);
@@ -2061,7 +2064,7 @@ export default function Sidebar() {
           )
           .map((thread) => scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id))),
       ),
-      activeThreads: sortThreadsForSidebar(active, sidebarThreadSortOrder),
+      activeThreads: sortThreads(active, sidebarActiveThreadSortOrder),
       // Soonest wake first: "what comes back next" is the shelf's question.
       snoozedThreads: snoozed.toSorted(
         (left, right) =>
@@ -2078,7 +2081,7 @@ export default function Sidebar() {
     nowMinute,
     scopedProjectKeys,
     serverConfigs,
-    sidebarThreadSortOrder,
+    sidebarActiveThreadSortOrder,
     snoozeWakeTick,
     threads,
   ]);
@@ -3543,20 +3546,17 @@ export default function Sidebar() {
                   </Tooltip>
                   <MenuPopup align="end">
                     <MenuRadioGroup
-                      value={sidebarThreadSortOrder}
+                      value={sidebarActiveThreadSortOrder}
                       onValueChange={(value) => {
+                        if (value !== "updated_at" && value !== "created_at") return;
                         updateClientSettings({
-                          sidebarThreadSortOrder: value as SidebarThreadSortOrder,
+                          sidebarActiveThreadSortOrder: value,
                         });
                       }}
                     >
-                      {(
-                        Object.entries(SIDEBAR_THREAD_SORT_LABELS) as Array<
-                          [SidebarThreadSortOrder, string]
-                        >
-                      ).map(([value, label]) => (
-                        <MenuRadioItem key={value} value={value} closeOnClick>
-                          {label}
+                      {SIDEBAR_ACTIVE_THREAD_SORT_OPTIONS.map((option) => (
+                        <MenuRadioItem key={option.value} value={option.value} closeOnClick>
+                          {option.label}
                         </MenuRadioItem>
                       ))}
                     </MenuRadioGroup>
