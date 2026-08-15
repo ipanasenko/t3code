@@ -198,6 +198,8 @@ export const ClientSettingsSchema = Schema.Struct({
   sidebarThreadSortOrder: SidebarThreadSortOrder.pipe(
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_SIDEBAR_THREAD_SORT_ORDER)),
   ),
+  // The current sidebar interprets updated_at narrowly as the latest user
+  // message and never as the thread's raw updatedAt metadata timestamp.
   sidebarActiveThreadSortOrder: SidebarThreadSortOrder.pipe(
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_SIDEBAR_ACTIVE_THREAD_SORT_ORDER)),
   ),

@@ -538,7 +538,7 @@ export function sortActiveThreadsForSidebar<
   T extends {
     readonly id: string;
     readonly createdAt: string;
-    readonly latestUserMessageAt?: string | null;
+    readonly latestUserMessageAt: string | null;
   },
 >(threads: readonly T[], sortOrder: SidebarThreadSortOrder): T[] {
   const timestamp = (thread: T) =>
