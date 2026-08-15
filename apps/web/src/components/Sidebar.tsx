@@ -3533,7 +3533,7 @@ export default function Sidebar() {
                           render={
                             <SidebarMenuButton
                               size="icon"
-                              className="shrink-0 focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
+                              className="relative shrink-0 focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
                               aria-label="Sort active threads"
                             />
                           }
@@ -3541,6 +3541,10 @@ export default function Sidebar() {
                       }
                     >
                       <ArrowUpDownIcon />
+                      <span
+                        className="pointer-events-none absolute left-1/2 top-1/2 size-[max(100%,3rem)] -translate-1/2 pointer-fine:hidden"
+                        aria-hidden="true"
+                      />
                     </TooltipTrigger>
                     <TooltipPopup side="right">Sort active threads</TooltipPopup>
                   </Tooltip>
