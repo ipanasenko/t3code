@@ -531,16 +531,13 @@ export function firstValidTimestamp(
   return null;
 }
 
-// Sidebar sort: static creation order, newest thread on top. Activity NEVER
-// reorders the list — a row holds its position from open until settled, so
-// the screen only moves at lifecycle transitions. Status (including pending
-// approval) is carried by each card's edge strip, not by position.
-export function sortThreadsForSidebar<
-  T extends { readonly id: string; readonly createdAt: string },
->(threads: readonly T[]): T[] {
+export function sortThreadsForSidebar<T extends { readonly id: string } & ThreadSortInput>(
+  threads: readonly T[],
+  sortOrder: SidebarThreadSortOrder,
+): T[] {
   return [...threads].toSorted(
     (left, right) =>
-      parseTimestampMs(right.createdAt) - parseTimestampMs(left.createdAt) ||
+      getThreadSortTimestamp(right, sortOrder) - getThreadSortTimestamp(left, sortOrder) ||
       left.id.localeCompare(right.id),
   );
 }
