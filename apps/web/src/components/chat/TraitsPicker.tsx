@@ -13,6 +13,7 @@ import {
   getProviderOptionDescriptors,
   isClaudeUltrathinkPrompt,
   resolveReasoningTransition,
+  stripClaudeUltrathinkPrefix,
 } from "@t3tools/shared/model";
 import { memo, useCallback, useState } from "react";
 import type { VariantProps } from "class-variance-authority";
@@ -155,7 +156,7 @@ function getSelectedTraits(
 
   // Check if "ultrathink" appears in the body text (not just our prefix)
   const ultrathinkInBodyText =
-    ultrathinkPromptControlled && isClaudeUltrathinkPrompt(prompt.replace(/^Ultrathink:\s*/i, ""));
+    ultrathinkPromptControlled && isClaudeUltrathinkPrompt(stripClaudeUltrathinkPrefix(prompt));
   const effort =
     (ultrathinkPromptControlled
       ? "ultrathink"

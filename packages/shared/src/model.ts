@@ -232,6 +232,10 @@ export function isClaudeUltrathinkPrompt(text: string | null | undefined): boole
   return typeof text === "string" && /\bultrathink\b/i.test(text);
 }
 
+export function stripClaudeUltrathinkPrefix(text: string): string {
+  return text.startsWith("Ultrathink:\n") ? text.slice("Ultrathink:\n".length) : text;
+}
+
 export type ReasoningTransitionAction =
   | { type: "cycle"; direction: "increase" | "decrease" }
   | { type: "select"; descriptorId: string; value: string };
@@ -256,7 +260,6 @@ export type ReasoningTransitionResult =
 const REASONING_DESCRIPTOR_IDS = new Set(["reasoningEffort", "effort", "reasoning"]);
 const ULTRATHINK_VALUE = "ultrathink";
 const ULTRATHINK_PREFIX = "Ultrathink:\n";
-const LEADING_ULTRATHINK_PREFIX = /^Ultrathink:\n/;
 const CLAUDE_SLASH_COMMAND = /^\/[^\s/]+(?:\s|$)/u;
 
 function isClaudeSlashCommandPrompt(prompt: string): boolean {
@@ -357,13 +360,11 @@ export function resolveReasoningTransition(input: {
 
   const promptInjectedUltrathink =
     descriptor.promptInjectedValues?.includes(ULTRATHINK_VALUE) ?? false;
-  const leadingPrefixMatch = promptInjectedUltrathink
-    ? prompt.match(LEADING_ULTRATHINK_PREFIX)
-    : null;
-  const promptBody = leadingPrefixMatch ? prompt.slice(leadingPrefixMatch[0].length) : prompt;
+  const promptBody = promptInjectedUltrathink ? stripClaudeUltrathinkPrefix(prompt) : prompt;
+  const hasLeadingPrefix = promptBody !== prompt;
   const ultrathinkInBody = promptInjectedUltrathink && isClaudeUltrathinkPrompt(promptBody);
   const promptControlsUltrathink =
-    promptInjectedUltrathink && (leadingPrefixMatch !== null || ultrathinkInBody);
+    promptInjectedUltrathink && (hasLeadingPrefix || ultrathinkInBody);
   const persistedValue = resolvePersistedReasoningValue(descriptor, modelOptions);
   const rawPersistedValue = getProviderOptionStringSelectionValue(modelOptions, descriptor.id);
   const persistedPromptInjectedValue =
@@ -415,10 +416,10 @@ export function resolveReasoningTransition(input: {
     return { status: "unsupported", reason: "unsupported-prompt-injected-value" };
   }
   const nextPrompt = targetIsPromptInjected
-    ? leadingPrefixMatch || ultrathinkInBody || isClaudeSlashCommandPrompt(prompt)
+    ? hasLeadingPrefix || ultrathinkInBody || isClaudeSlashCommandPrompt(prompt)
       ? prompt
       : `${ULTRATHINK_PREFIX}${prompt}`
-    : leadingPrefixMatch
+    : hasLeadingPrefix
       ? promptBody
       : prompt;
   const nextModelOptions = targetIsPromptInjected

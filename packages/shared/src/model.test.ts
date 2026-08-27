@@ -19,6 +19,7 @@ import {
   normalizeCustomModelSlug,
   normalizeModelSlug,
   resolveReasoningTransition,
+  stripClaudeUltrathinkPrefix,
 } from "./model.ts";
 
 const codexCaps: ModelCapabilities = createModelCapabilities({
@@ -590,6 +591,18 @@ describe("resolveReasoningTransition", () => {
         action: { type: "select", descriptorId: "contextWindow", value: "200k" },
       }),
     ).toEqual({ status: "not-applicable" });
+  });
+});
+
+describe("stripClaudeUltrathinkPrefix", () => {
+  it("strips only the exact app-owned prefix", () => {
+    expect(stripClaudeUltrathinkPrefix("Ultrathink:\nInvestigate")).toBe("Investigate");
+    expect(stripClaudeUltrathinkPrefix("Ultrathink: explain the term")).toBe(
+      "Ultrathink: explain the term",
+    );
+    expect(stripClaudeUltrathinkPrefix("ultrathink:\nInvestigate")).toBe(
+      "ultrathink:\nInvestigate",
+    );
   });
 });
 
