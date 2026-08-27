@@ -2558,11 +2558,11 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       });
       const reasoningDirection = reasoningCycleDirectionFromCommand(command);
       if (command !== "composer.stash" && reasoningDirection === null) return;
-      if (reasoningDirection !== null && event.repeat) return;
       // Always claim recognized composer shortcuts, including in states where
       // the requested mutation is unavailable.
       event.preventDefault();
       event.stopPropagation();
+      if (reasoningDirection !== null && event.repeat) return;
       if (isCommandPaletteOpen()) {
         return;
       }
