@@ -7,10 +7,35 @@ import {
   detectComposerTrigger,
   expandCollapsedComposerCursor,
   isCollapsedCursorAdjacentToInlineToken,
+  mapComposerCursorAcrossLeadingPromptChange,
   parseStandaloneComposerSlashCommand,
   replaceTextRange,
 } from "./composer-logic";
 import { INLINE_TERMINAL_CONTEXT_PLACEHOLDER } from "./lib/terminalContext";
+
+describe("mapComposerCursorAcrossLeadingPromptChange", () => {
+  it("keeps the caret beside the same draft text when a prefix is added or removed", () => {
+    const prefix = "Ultrathink:\n";
+    const prompt = "Investigate this failure";
+
+    expect(mapComposerCursorAcrossLeadingPromptChange(prompt, `${prefix}${prompt}`, 12)).toBe(
+      prefix.length + 12,
+    );
+    expect(
+      mapComposerCursorAcrossLeadingPromptChange(`${prefix}${prompt}`, prompt, prefix.length + 12),
+    ).toBe(12);
+  });
+
+  it("moves a caret inside a removed prefix to the start of the remaining prompt", () => {
+    expect(
+      mapComposerCursorAcrossLeadingPromptChange(
+        "Ultrathink:\nInvestigate this failure",
+        "Investigate this failure",
+        4,
+      ),
+    ).toBe(0);
+  });
+});
 
 describe("composerSubmissionIntentForEnter", () => {
   it("submits plain Enter on desktop", () => {

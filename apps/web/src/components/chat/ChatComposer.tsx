@@ -46,6 +46,7 @@ import {
   composerSubmissionIntentForEnter,
   detectComposerTrigger,
   expandCollapsedComposerCursor,
+  mapComposerCursorAcrossLeadingPromptChange,
   replaceTextRange,
 } from "../../composer-logic";
 import { DISCONNECTED_COMPOSER_PLACEHOLDER } from "../../composerPlaceholder";
@@ -2564,14 +2565,8 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       if (isCommandPaletteOpen()) {
         return;
       }
-      if (pendingUserInputs.length > 0 && !isComposerApprovalState) {
-        setIsStashMenuOpen((open) => !open);
-        return;
-      }
-      if (isComposerApprovalState || projectSelectionRequired || activePendingProgress !== null) {
-        return;
-      }
       if (reasoningDirection !== null) {
+        const currentPrompt = promptRef.current;
         const currentModelOptions = composerModelOptions?.[selectedInstanceId];
         const transition = resolveReasoningTransition({
           capabilities: getProviderModelCapabilities(
@@ -2580,12 +2575,25 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
             selectedProvider,
           ),
           modelOptions: currentModelOptions,
-          prompt: promptRef.current,
+          prompt: currentPrompt,
           action: { type: "cycle", direction: reasoningDirection },
         });
         if (transition.status === "changed") {
-          if (transition.prompt !== promptRef.current) {
-            setPromptFromTraits(transition.prompt);
+          if (transition.prompt !== currentPrompt) {
+            const currentExpandedCursor =
+              composerEditorRef.current?.readSnapshot().expandedCursor ??
+              expandCollapsedComposerCursor(currentPrompt, composerCursor);
+            const nextExpandedCursor = mapComposerCursorAcrossLeadingPromptChange(
+              currentPrompt,
+              transition.prompt,
+              currentExpandedCursor,
+            );
+            promptRef.current = transition.prompt;
+            setPrompt(transition.prompt);
+            setComposerCursor(
+              collapseExpandedComposerCursor(transition.prompt, nextExpandedCursor),
+            );
+            setComposerTrigger(detectComposerTrigger(transition.prompt, nextExpandedCursor));
           }
           if (transition.modelOptions !== currentModelOptions) {
             setProviderModelOptions(
@@ -2612,6 +2620,13 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
         }
         return;
       }
+      if (pendingUserInputs.length > 0 && !isComposerApprovalState) {
+        setIsStashMenuOpen((open) => !open);
+        return;
+      }
+      if (isComposerApprovalState || projectSelectionRequired || activePendingProgress !== null) {
+        return;
+      }
       void stashCurrentPrompt();
     };
     window.addEventListener("keydown", handler, true);
@@ -2619,6 +2634,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   }, [
     activePendingProgress,
     composerDraftTarget,
+    composerCursor,
     composerModelOptions,
     isComposerApprovalState,
     isComposerModelPickerOpen,
@@ -2629,7 +2645,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     selectedModel,
     selectedProvider,
     selectedProviderModels,
-    setPromptFromTraits,
+    setPrompt,
     setProviderModelOptions,
     stashCurrentPrompt,
     terminalOpen,

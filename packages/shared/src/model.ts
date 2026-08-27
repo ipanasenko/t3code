@@ -257,6 +257,11 @@ const REASONING_DESCRIPTOR_IDS = new Set(["reasoningEffort", "effort", "reasonin
 const ULTRATHINK_VALUE = "ultrathink";
 const ULTRATHINK_PREFIX = "Ultrathink:\n";
 const LEADING_ULTRATHINK_PREFIX = /^Ultrathink:(?:\r?\n)?/i;
+const CLAUDE_SLASH_COMMAND = /^\/[^\s/]+(?:\s|$)/u;
+
+function isClaudeSlashCommandPrompt(prompt: string): boolean {
+  return CLAUDE_SLASH_COMMAND.test(prompt.trim());
+}
 
 function findReasoningDescriptor(
   capabilities: ModelCapabilities,
@@ -401,7 +406,7 @@ export function resolveReasoningTransition(input: {
     return { status: "unsupported", reason: "unsupported-prompt-injected-value" };
   }
   const nextPrompt = targetIsPromptInjected
-    ? leadingPrefixMatch || ultrathinkInBody
+    ? leadingPrefixMatch || ultrathinkInBody || isClaudeSlashCommandPrompt(prompt)
       ? prompt
       : `${ULTRATHINK_PREFIX}${prompt}`
     : leadingPrefixMatch
@@ -561,7 +566,7 @@ export function applyClaudePromptEffortPrefix(
   // runs it. Command names come from arbitrary file names ("/deploy.prod",
   // "/plugin:skill"), so accept any first token without a second slash;
   // absolute paths like "/home/theo/app.ts" keep the prefix.
-  if (effort !== "ultrathink" || /^\/[^\s/]+(?:\s|$)/u.test(trimmed)) {
+  if (effort !== "ultrathink" || isClaudeSlashCommandPrompt(trimmed)) {
     return trimmed;
   }
   if (trimmed.startsWith("Ultrathink:")) {

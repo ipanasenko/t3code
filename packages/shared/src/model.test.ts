@@ -363,6 +363,29 @@ describe("resolveReasoningTransition", () => {
     ).toEqual(expect.objectContaining({ prompt: "\n  preserved body  " }));
   });
 
+  it("leaves Claude slash commands executable when ultrathink is selected", () => {
+    expect(
+      transition({
+        capabilities: claudeCaps,
+        modelOptions: [{ id: "effort", value: "high" }],
+        prompt: "/compact keep recent errors",
+        action: { type: "select", descriptorId: "effort", value: "ultrathink" },
+      }),
+    ).toEqual({ status: "unchanged" });
+    expect(
+      transition({
+        capabilities: claudeCaps,
+        modelOptions: [{ id: "effort", value: "high" }],
+        prompt: "/home/theo/app.ts crashed on load",
+        action: { type: "select", descriptorId: "effort", value: "ultrathink" },
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        prompt: "Ultrathink:\n/home/theo/app.ts crashed on load",
+      }),
+    );
+  });
+
   it("blocks leaving ultrathink when it occurs in the prompt body", () => {
     const modelOptions = [{ id: "effort", value: "high" }] as const;
     expect(
