@@ -53,7 +53,7 @@ successful pick; its hover glow and badge preview the element and color family t
 so add one in **Settings** → **Keybindings** if you want to use it.
 
 `reasoning.decrease` and `reasoning.increase` cycle through the selected model's available
-reasoning levels, wrapping at either end. They default to `alt+,` and `alt+.` and follow the order
+reasoning levels, wrapping at either end. They default to `mod+alt+,` and `mod+alt+.` and follow the order
 advertised by the model. If an agent is running, the change applies to the next message; it does
 not alter work already in progress. Models and providers that do not advertise ordered reasoning
 levels are left unchanged.
