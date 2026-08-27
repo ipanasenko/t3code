@@ -256,7 +256,7 @@ export type ReasoningTransitionResult =
 const REASONING_DESCRIPTOR_IDS = new Set(["reasoningEffort", "effort", "reasoning"]);
 const ULTRATHINK_VALUE = "ultrathink";
 const ULTRATHINK_PREFIX = "Ultrathink:\n";
-const LEADING_ULTRATHINK_PREFIX = /^Ultrathink:(?:\r?\n)?/i;
+const LEADING_ULTRATHINK_PREFIX = /^Ultrathink:\n/;
 const CLAUDE_SLASH_COMMAND = /^\/[^\s/]+(?:\s|$)/u;
 
 function isClaudeSlashCommandPrompt(prompt: string): boolean {

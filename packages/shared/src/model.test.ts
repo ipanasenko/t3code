@@ -347,7 +347,7 @@ describe("resolveReasoningTransition", () => {
     );
   });
 
-  it("enters ultrathink from empty prompts and strips only its owned leading prefix", () => {
+  it("enters ultrathink from empty prompts and strips only its exact owned leading prefix", () => {
     expect(
       transition({
         capabilities: claudeCaps,
@@ -357,10 +357,23 @@ describe("resolveReasoningTransition", () => {
     expect(
       transition({
         capabilities: claudeCaps,
-        prompt: "ultrathink:\r\n\n  preserved body  ",
+        prompt: "Ultrathink:\n\n  preserved body  ",
         action: { type: "select", descriptorId: "effort", value: "medium" },
       }),
     ).toEqual(expect.objectContaining({ prompt: "\n  preserved body  " }));
+  });
+
+  it("does not strip user-authored ultrathink labels when selecting ordinary effort", () => {
+    for (const prompt of ["ultrathink: explain the term", "Ultrathink: explain the term"]) {
+      expect(
+        transition({
+          capabilities: claudeCaps,
+          modelOptions: [{ id: "effort", value: "high" }],
+          prompt,
+          action: { type: "select", descriptorId: "effort", value: "medium" },
+        }),
+      ).toEqual({ status: "blocked", reason: "ultrathink-in-prompt-body" });
+    }
   });
 
   it("leaves Claude slash commands executable when ultrathink is selected", () => {
