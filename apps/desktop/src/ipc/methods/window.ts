@@ -326,6 +326,10 @@ export const probeRemoteEditors = DesktopIpc.makeIpcMethod({
  *  renderer reject it by size without the contents ever crossing the bridge. */
 const PICKED_THEME_FILE_MAX_BYTES = 256 * 1024;
 
+/** Extension packages carry icons and screenshots, so they get the same cap
+ *  the renderer applies to a downloaded VSIX. */
+const PICKED_THEME_PACKAGE_MAX_BYTES = 20 * 1024 * 1024;
+
 export const pickThemeFiles = DesktopIpc.makeIpcMethod({
   channel: IpcChannels.PICK_THEME_FILES_CHANNEL,
   payload: Schema.Undefined,
@@ -345,7 +349,11 @@ export const pickThemeFiles = DesktopIpc.makeIpcMethod({
     const paths = yield* dialog.pickFiles({
       owner: yield* electronWindow.focusedMainOrFirst,
       defaultPath: defaultPath ? Option.some(extensionsDir) : Option.none(),
-      filters: [{ name: "JSON", extensions: ["json"] }],
+      filters: [
+        { name: "Themes", extensions: ["json", "vsix"] },
+        { name: "JSON", extensions: ["json"] },
+        { name: "Extension package", extensions: ["vsix"] },
+      ],
       multiple: true,
     });
     if (paths.length === 0) {
@@ -353,11 +361,20 @@ export const pickThemeFiles = DesktopIpc.makeIpcMethod({
     }
     return yield* Effect.forEach(paths, (filePath) => {
       const name = path.basename(filePath);
+      const isPackage = name.toLowerCase().endsWith(".vsix");
       return Effect.gen(function* () {
         const info = yield* fileSystem.stat(filePath);
         const size = Number(info.size);
-        if (size > PICKED_THEME_FILE_MAX_BYTES) {
+        const limit = isPackage ? PICKED_THEME_PACKAGE_MAX_BYTES : PICKED_THEME_FILE_MAX_BYTES;
+        if (size > limit) {
           return { name, size, text: "" } satisfies PickedThemeFile;
+        }
+        // A package is binary, so it crosses the bridge base64-encoded; the
+        // renderer unzips it and never looks at `text`.
+        if (isPackage) {
+          const bytes = yield* fileSystem.readFile(filePath);
+          const contentBase64 = Buffer.from(bytes).toString("base64");
+          return { name, size, text: "", contentBase64 } satisfies PickedThemeFile;
         }
         const text = yield* fileSystem.readFileString(filePath);
         return { name, size, text } satisfies PickedThemeFile;
