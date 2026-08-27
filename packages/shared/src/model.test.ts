@@ -386,6 +386,30 @@ describe("resolveReasoningTransition", () => {
     );
   });
 
+  it("wraps Claude slash-command drafts across persistable effort levels", () => {
+    expect(
+      transition({
+        capabilities: claudeCaps,
+        modelOptions: [{ id: "effort", value: "high" }],
+        prompt: "/compact",
+      }),
+    ).toEqual({
+      status: "changed",
+      prompt: "/compact",
+      modelOptions: [{ id: "effort", value: "medium" }],
+      value: "medium",
+      label: "Medium",
+    });
+    expect(
+      transition({
+        capabilities: claudeCaps,
+        modelOptions: [{ id: "effort", value: "medium" }],
+        prompt: "/compact",
+        action: { type: "cycle", direction: "decrease" },
+      }),
+    ).toEqual(expect.objectContaining({ prompt: "/compact", value: "high" }));
+  });
+
   it("blocks leaving ultrathink when it occurs in the prompt body", () => {
     const modelOptions = [{ id: "effort", value: "high" }] as const;
     expect(

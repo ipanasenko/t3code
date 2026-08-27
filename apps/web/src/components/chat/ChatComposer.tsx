@@ -2566,6 +2566,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
         return;
       }
       if (reasoningDirection !== null) {
+        const editorShowsDraftPrompt = !isComposerApprovalState && activePendingProgress === null;
         const currentPrompt = promptRef.current;
         const currentModelOptions = composerModelOptions?.[selectedInstanceId];
         const transition = resolveReasoningTransition({
@@ -2579,6 +2580,9 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
           action: { type: "cycle", direction: reasoningDirection },
         });
         if (transition.status === "changed") {
+          if (transition.prompt !== currentPrompt && !editorShowsDraftPrompt) {
+            return;
+          }
           if (transition.prompt !== currentPrompt) {
             const currentExpandedCursor =
               composerEditorRef.current?.readSnapshot().expandedCursor ??
@@ -2607,7 +2611,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
               },
             );
           }
-        } else if (transition.status === "blocked") {
+        } else if (transition.status === "blocked" && editorShowsDraftPrompt) {
           toastManager.add({
             type: "info",
             title: "Remove “ultrathink” from the prompt text to change reasoning.",

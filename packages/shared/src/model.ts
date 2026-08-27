@@ -370,6 +370,9 @@ export function resolveReasoningTransition(input: {
     rawPersistedValue !== undefined &&
     (descriptor.promptInjectedValues?.includes(rawPersistedValue) ?? false);
   const currentValue = promptControlsUltrathink ? ULTRATHINK_VALUE : persistedValue;
+  const cycleOptions = isClaudeSlashCommandPrompt(prompt)
+    ? descriptor.options.filter((option) => !descriptor.promptInjectedValues?.includes(option.id))
+    : descriptor.options;
 
   let targetValue: string;
   if (action.type === "select") {
@@ -378,18 +381,24 @@ export function resolveReasoningTransition(input: {
     }
     targetValue = action.value;
   } else if (currentValue === undefined) {
-    const fallbackIndex = action.direction === "increase" ? 0 : descriptor.options.length - 1;
-    targetValue = descriptor.options[fallbackIndex]?.id ?? "";
+    if (cycleOptions.length === 0) {
+      return { status: "unchanged" };
+    }
+    const fallbackIndex = action.direction === "increase" ? 0 : cycleOptions.length - 1;
+    targetValue = cycleOptions[fallbackIndex]?.id ?? "";
   } else {
-    const currentIndex = descriptor.options.findIndex((option) => option.id === currentValue);
+    if (cycleOptions.length === 0) {
+      return { status: "unchanged" };
+    }
+    const currentIndex = cycleOptions.findIndex((option) => option.id === currentValue);
     const offset = action.direction === "increase" ? 1 : -1;
     const targetIndex =
       currentIndex === -1
         ? action.direction === "increase"
           ? 0
-          : descriptor.options.length - 1
-        : (currentIndex + offset + descriptor.options.length) % descriptor.options.length;
-    targetValue = descriptor.options[targetIndex]?.id ?? "";
+          : cycleOptions.length - 1
+        : (currentIndex + offset + cycleOptions.length) % cycleOptions.length;
+    targetValue = cycleOptions[targetIndex]?.id ?? "";
   }
 
   if (ultrathinkInBody && targetValue !== ULTRATHINK_VALUE) {
