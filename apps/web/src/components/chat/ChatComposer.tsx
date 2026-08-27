@@ -2558,6 +2558,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       });
       const reasoningDirection = reasoningCycleDirectionFromCommand(command);
       if (command !== "composer.stash" && reasoningDirection === null) return;
+      if (reasoningDirection !== null && event.repeat) return;
       // Always claim recognized composer shortcuts, including in states where
       // the requested mutation is unavailable.
       event.preventDefault();
@@ -2567,7 +2568,9 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       }
       if (reasoningDirection !== null) {
         const editorShowsDraftPrompt = !isComposerApprovalState && activePendingProgress === null;
-        const currentPrompt = promptRef.current;
+        const currentPrompt = editorShowsDraftPrompt
+          ? promptRef.current
+          : (getComposerDraft(composerDraftTarget)?.prompt ?? "");
         const currentModelOptions = composerModelOptions?.[selectedInstanceId];
         const transition = resolveReasoningTransition({
           capabilities: getProviderModelCapabilities(
@@ -2640,6 +2643,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     composerDraftTarget,
     composerCursor,
     composerModelOptions,
+    getComposerDraft,
     isComposerApprovalState,
     isComposerModelPickerOpen,
     keybindings,
