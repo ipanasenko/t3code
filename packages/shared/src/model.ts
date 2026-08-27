@@ -424,7 +424,9 @@ export function resolveReasoningTransition(input: {
   const nextModelOptions = targetIsPromptInjected
     ? removePromptInjectedReasoningSelection(modelOptions, descriptor)
     : targetValue === persistedValue && !persistedPromptInjectedValue
-      ? (modelOptions ?? undefined)
+      ? rawPersistedValue === undefined || rawPersistedValue === persistedValue
+        ? (modelOptions ?? undefined)
+        : updateReasoningSelection(modelOptions, descriptor.id, targetValue)
       : updateReasoningSelection(modelOptions, descriptor.id, targetValue);
   const normalizedInputOptions = modelOptions ?? undefined;
 

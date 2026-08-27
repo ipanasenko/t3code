@@ -545,6 +545,21 @@ describe("resolveReasoningTransition", () => {
     ).toEqual({ status: "invalid", reason: "unknown-value" });
   });
 
+  it("replaces a stale persisted value when selecting the effective default", () => {
+    expect(
+      transition({
+        modelOptions: [{ id: "reasoningEffort", value: "removed-level" }],
+        action: { type: "select", descriptorId: "reasoningEffort", value: "high" },
+      }),
+    ).toEqual({
+      status: "changed",
+      prompt: "",
+      modelOptions: [{ id: "reasoningEffort", value: "high" }],
+      value: "high",
+      label: "High",
+    });
+  });
+
   it("makes direct selection and cycling to the same target identical", () => {
     const modelOptions = [{ id: "reasoningEffort", value: "xhigh" }] as const;
     const cycled = transition({ modelOptions });
