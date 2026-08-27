@@ -17,6 +17,7 @@ import { isCommandAvailable } from "@t3tools/shared/shell";
 import * as NodeOS from "node:os";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import type { PlatformError } from "effect/PlatformError";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -330,6 +331,37 @@ const PICKED_THEME_FILE_MAX_BYTES = 256 * 1024;
  *  the renderer applies to a downloaded VSIX. */
 const PICKED_THEME_PACKAGE_MAX_BYTES = 20 * 1024 * 1024;
 
+/** Reads at most `limit` bytes. The cap is enforced while reading, not by a
+ *  prior stat, so a file that grows between the size check and the read can
+ *  never pull more than the cap into memory. Returns None past the limit. */
+const readCappedFile = (
+  fileSystem: FileSystem.FileSystem,
+  filePath: string,
+  limit: number,
+): Effect.Effect<Option.Option<Uint8Array>, PlatformError> =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const file = yield* fileSystem.open(filePath);
+      const chunks: Uint8Array[] = [];
+      let byteLength = 0;
+      while (byteLength <= limit) {
+        const chunk = yield* file.readAlloc(64 * 1024);
+        if (Option.isNone(chunk) || chunk.value.byteLength === 0) {
+          const bytes = new Uint8Array(byteLength);
+          let offset = 0;
+          for (const part of chunks) {
+            bytes.set(part, offset);
+            offset += part.byteLength;
+          }
+          return Option.some(bytes);
+        }
+        chunks.push(chunk.value);
+        byteLength += chunk.value.byteLength;
+      }
+      return Option.none<Uint8Array>();
+    }),
+  );
+
 export const pickThemeFiles = DesktopIpc.makeIpcMethod({
   channel: IpcChannels.PICK_THEME_FILES_CHANNEL,
   payload: Schema.Undefined,
@@ -372,8 +404,13 @@ export const pickThemeFiles = DesktopIpc.makeIpcMethod({
         // A package is binary, so it crosses the bridge base64-encoded; the
         // renderer unzips it and never looks at `text`.
         if (isPackage) {
-          const bytes = yield* fileSystem.readFile(filePath);
-          const contentBase64 = Buffer.from(bytes).toString("base64");
+          const bytes = yield* readCappedFile(fileSystem, filePath, limit);
+          if (Option.isNone(bytes)) {
+            // Grew past the cap after stat; report a size the renderer
+            // rejects as oversized.
+            return { name, size: limit + 1, text: "" } satisfies PickedThemeFile;
+          }
+          const contentBase64 = Buffer.from(bytes.value).toString("base64");
           return { name, size, text: "", contentBase64 } satisfies PickedThemeFile;
         }
         const text = yield* fileSystem.readFileString(filePath);
