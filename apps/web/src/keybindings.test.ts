@@ -597,7 +597,7 @@ describe("reasoning cycle shortcuts", () => {
     );
   });
 
-  it("ignores AltGraph punctuation without blocking intentional Ctrl+Alt shortcuts", () => {
+  it("matches only the reported layout key during AltGraph input", () => {
     const getAltGraphModifierState = (modifier: string) => modifier === "AltGraph";
     assert.isNull(
       resolveShortcutCommand(
@@ -632,7 +632,7 @@ describe("reasoning cycle shortcuts", () => {
           code: "Comma",
           ctrlKey: true,
           altKey: true,
-          getModifierState: () => false,
+          getModifierState: getAltGraphModifierState,
         }),
         DEFAULT_BINDINGS,
         { platform: "Win32", context: { terminalFocus: false } },

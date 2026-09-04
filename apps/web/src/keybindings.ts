@@ -73,7 +73,7 @@ function normalizeEventKey(key: string): string {
   return normalized;
 }
 
-export function isAltGraphShortcutEvent(
+function isAltGraphShortcutEvent(
   event: Pick<ShortcutEventLike, "getModifierState">,
   platform: string,
 ): boolean {
@@ -81,9 +81,12 @@ export function isAltGraphShortcutEvent(
   return !isMacPlatform(platform) && event.getModifierState?.("AltGraph") === true;
 }
 
-function resolveEventKeys(event: ShortcutEventLike): Set<string> {
+function resolveEventKeys(event: ShortcutEventLike, platform: string): Set<string> {
   const layoutKey = normalizeEventKey(event.key);
   const keys = new Set([layoutKey]);
+  // AltGraph can surface as Ctrl+Alt, so retain its layout key while avoiding
+  // physical aliases that would turn typed punctuation into a shortcut.
+  if (isAltGraphShortcutEvent(event, platform)) return keys;
   // The physical-position fallback exists for layouts that type non-Latin
   // letters (Cyrillic, Greek) and for Option-modified symbols on macOS.
   // When the layout already produces a Latin letter, match on it alone;
@@ -124,7 +127,7 @@ function matchesShortcut(
   platform = navigator.platform,
 ): boolean {
   if (!matchesShortcutModifiers(event, shortcut, platform)) return false;
-  return resolveEventKeys(event).has(shortcut.key);
+  return resolveEventKeys(event, platform).has(shortcut.key);
 }
 
 function resolvePlatform(options: ShortcutMatchOptions | undefined): string {
@@ -221,7 +224,6 @@ export function resolveShortcutCommand(
   options?: ShortcutMatchOptions,
 ): KeybindingCommand | null {
   const platform = resolvePlatform(options);
-  if (isAltGraphShortcutEvent(event, platform)) return null;
   const context = resolveContext(options);
 
   for (let index = keybindings.length - 1; index >= 0; index -= 1) {

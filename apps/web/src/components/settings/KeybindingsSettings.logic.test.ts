@@ -65,37 +65,6 @@ describe("KeybindingsSettings.logic", () => {
     ).toBe("mod+shift+k");
   });
 
-  it("does not record AltGraph as a Ctrl+Alt shortcut", () => {
-    expect(
-      keybindingFromKeyboardEvent(
-        {
-          key: "<",
-          code: "Comma",
-          metaKey: false,
-          ctrlKey: true,
-          altKey: true,
-          shiftKey: false,
-          getModifierState: (modifier) => modifier === "AltGraph",
-        },
-        "Win32",
-      ),
-    ).toBeNull();
-    expect(
-      keybindingFromKeyboardEvent(
-        {
-          key: ",",
-          code: "Comma",
-          metaKey: false,
-          ctrlKey: true,
-          altKey: true,
-          shiftKey: false,
-          getModifierState: () => false,
-        },
-        "Win32",
-      ),
-    ).toBe("mod+alt+,");
-  });
-
   it("records macOS Option punctuation using portable key names", () => {
     expect(
       keybindingFromKeyboardEvent(
@@ -106,7 +75,6 @@ describe("KeybindingsSettings.logic", () => {
           ctrlKey: false,
           altKey: true,
           shiftKey: false,
-          getModifierState: (modifier) => modifier === "AltGraph",
         },
         "MacIntel",
       ),
@@ -120,7 +88,6 @@ describe("KeybindingsSettings.logic", () => {
           ctrlKey: false,
           altKey: true,
           shiftKey: false,
-          getModifierState: (modifier) => modifier === "AltGraph",
         },
         "MacIntel",
       ),

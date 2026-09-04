@@ -11,7 +11,6 @@ import {
   parseKeybindingWhenExpression,
 } from "@t3tools/shared/keybindings";
 
-import { isAltGraphShortcutEvent } from "../../keybindings";
 import { isMacPlatform } from "../../lib/utils";
 
 export type KeybindingSource = "Default" | "Custom" | "Project";
@@ -323,11 +322,9 @@ export function normalizeShortcutKeyToken(key: string): string | null {
 }
 
 export function keybindingFromKeyboardEvent(
-  event: Pick<KeyboardEvent, "key" | "code" | "metaKey" | "ctrlKey" | "altKey" | "shiftKey"> &
-    Partial<Pick<KeyboardEvent, "getModifierState">>,
+  event: Pick<KeyboardEvent, "key" | "code" | "metaKey" | "ctrlKey" | "altKey" | "shiftKey">,
   platform: string,
 ): string | null {
-  if (isAltGraphShortcutEvent(event, platform)) return null;
   const portableOptionKey =
     isMacPlatform(platform) && event.altKey
       ? event.code === "Comma"
