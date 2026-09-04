@@ -1,5 +1,5 @@
 import { DownloadIcon, PlusIcon } from "lucide-react";
-import type { ChangeEvent, DragEvent, UIEvent } from "react";
+import type { ChangeEvent, DragEvent, ReactNode, UIEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "../../lib/utils";
 import {
@@ -21,7 +21,7 @@ import {
   resolveThemeLabelCollisions,
 } from "../../vscodeThemeImport";
 import { importVsixThemeFile, MAX_VSIX_BYTES } from "../../vsixThemePackage";
-import { Alert } from "../ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { Button } from "../ui/button";
 import { Dialog, DialogHeader, DialogPanel, DialogPopup, DialogTitle } from "../ui/dialog";
 import { ThemeSearchSection } from "./ThemeSearchSection";
@@ -185,6 +185,15 @@ type PendingThemePackage = {
   themes: ReadonlyArray<ThemeDefinition>;
   installedCollection: ReadonlyArray<ThemeDefinition>;
 };
+
+function ThemeConflictNotice({ title, children }: { title: ReactNode; children: ReactNode }) {
+  return (
+    <Alert className="border-border/70 bg-muted/20 px-3 py-3 dark:bg-muted/20">
+      <AlertTitle>{title}</AlertTitle>
+      <AlertDescription className="mt-0.5 text-xs">{children}</AlertDescription>
+    </Alert>
+  );
+}
 
 export function ThemeImportDialog({
   open,
@@ -617,15 +626,10 @@ export function ThemeImportDialog({
             if (pendingPackage) {
               return (
                 <div className="space-y-3">
-                  <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
-                    <p className="text-sm font-medium">
-                      “{pendingPackage.label}” is already installed
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Updating replaces its installed variants, including any local edits. Variants
-                      no longer in the package will be removed.
-                    </p>
-                  </div>
+                  <ThemeConflictNotice title={`“${pendingPackage.label}” is already installed`}>
+                    Updating replaces its installed variants, including any local edits. Variants no
+                    longer in the package will be removed.
+                  </ThemeConflictNotice>
                   <div className="flex flex-wrap items-center gap-2">
                     <Button size="sm" onClick={() => installThemePackage(pendingPackage)}>
                       Update themes
@@ -643,12 +647,9 @@ export function ThemeImportDialog({
             if (conflicts) {
               return (
                 <div className="space-y-3">
-                  <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
-                    <p className="text-sm font-medium">Already installed</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {conflicts.map((theme) => theme.label).join(", ")}
-                    </p>
-                  </div>
+                  <ThemeConflictNotice title="Already installed">
+                    {conflicts.map((theme) => theme.label).join(", ")}
+                  </ThemeConflictNotice>
                   <div className="flex flex-wrap items-center gap-2">
                     <Button size="sm" onClick={() => resolveConflicts("update")}>
                       Update existing
