@@ -188,7 +188,7 @@ type PendingThemePackage = {
 
 function ThemeConflictNotice({ title, children }: { title: ReactNode; children: ReactNode }) {
   return (
-    <Alert className="border-border/70 bg-muted/20 px-3 py-3 dark:bg-muted/20">
+    <Alert>
       <AlertTitle>{title}</AlertTitle>
       <AlertDescription className="mt-0.5 text-xs">{children}</AlertDescription>
     </Alert>
