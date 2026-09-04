@@ -327,7 +327,7 @@ export function keybindingFromKeyboardEvent(
     Partial<Pick<KeyboardEvent, "getModifierState">>,
   platform: string,
 ): string | null {
-  if (isAltGraphShortcutEvent(event)) return null;
+  if (isAltGraphShortcutEvent(event, platform)) return null;
   const portableOptionKey =
     isMacPlatform(platform) && event.altKey
       ? event.code === "Comma"

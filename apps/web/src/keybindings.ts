@@ -75,8 +75,10 @@ function normalizeEventKey(key: string): string {
 
 export function isAltGraphShortcutEvent(
   event: Pick<ShortcutEventLike, "getModifierState">,
+  platform: string,
 ): boolean {
-  return event.getModifierState?.("AltGraph") === true;
+  // Firefox reports ordinary Option presses as AltGraph on macOS.
+  return !isMacPlatform(platform) && event.getModifierState?.("AltGraph") === true;
 }
 
 function resolveEventKeys(event: ShortcutEventLike): Set<string> {
@@ -218,8 +220,8 @@ export function resolveShortcutCommand(
   keybindings: ResolvedKeybindingsConfig,
   options?: ShortcutMatchOptions,
 ): KeybindingCommand | null {
-  if (isAltGraphShortcutEvent(event)) return null;
   const platform = resolvePlatform(options);
+  if (isAltGraphShortcutEvent(event, platform)) return null;
   const context = resolveContext(options);
 
   for (let index = keybindings.length - 1; index >= 0; index -= 1) {

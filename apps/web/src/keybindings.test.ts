@@ -563,7 +563,13 @@ describe("reasoning cycle shortcuts", () => {
   it("matches macOS Mod+Option punctuation by physical key code", () => {
     assert.strictEqual(
       resolveShortcutCommand(
-        event({ key: "≤", code: "Comma", metaKey: true, altKey: true }),
+        event({
+          key: "≤",
+          code: "Comma",
+          metaKey: true,
+          altKey: true,
+          getModifierState: (modifier) => modifier === "AltGraph",
+        }),
         DEFAULT_BINDINGS,
         {
           platform: "MacIntel",
@@ -574,7 +580,13 @@ describe("reasoning cycle shortcuts", () => {
     );
     assert.strictEqual(
       resolveShortcutCommand(
-        event({ key: "≥", code: "Period", metaKey: true, altKey: true }),
+        event({
+          key: "≥",
+          code: "Period",
+          metaKey: true,
+          altKey: true,
+          getModifierState: (modifier) => modifier === "AltGraph",
+        }),
         DEFAULT_BINDINGS,
         {
           platform: "MacIntel",
