@@ -2239,9 +2239,13 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   // Sync refs back to parent
   // ------------------------------------------------------------------
   useEffect(() => {
+    // While a pending question is visible, promptRef is temporarily the
+    // custom-answer buffer. Restore the draft as soon as that editor state
+    // ends, even when the draft prompt itself did not change.
+    if (activePendingProgress !== null) return;
     promptRef.current = prompt;
     setComposerCursor((existing) => clampCollapsedComposerCursor(prompt, existing));
-  }, [prompt, promptRef]);
+  }, [activePendingProgress, prompt, promptRef]);
 
   useEffect(() => {
     if (composerSubmissionError === null) return;
@@ -2351,6 +2355,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     activePendingProgress?.customAnswer,
     activePendingProgress?.activeQuestion?.id,
     activePendingUserInput?.requestId,
+    prompt,
     promptRef,
   ]);
 
