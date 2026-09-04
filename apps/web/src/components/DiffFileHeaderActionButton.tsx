@@ -25,7 +25,7 @@ export function DiffFileHeaderActionButton({
             ref={ref}
             size="icon-micro"
             variant="ghost"
-            className="text-muted-foreground [:hover,[data-pressed]]:bg-transparent"
+            className="text-muted-foreground [:hover,[data-pressed]]:bg-transparent disabled:pointer-events-auto disabled:cursor-not-allowed"
             aria-label={ariaLabel}
             disabled={disabled}
             onClick={onClick}
