@@ -26,7 +26,7 @@ import * as Schema from "effect/Schema";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useOpenInPreferredEditor } from "../editorPreferences";
 import { type DraftId } from "../composerDraftStore";
-import { openDiffFilePrimaryAction } from "../diffFileActions";
+import { openDiffFileInEditor, openDiffFilePrimaryAction } from "../diffFileActions";
 import { useCheckpointDiff } from "~/lib/checkpointDiffState";
 import { cn } from "~/lib/utils";
 import { selectThreadDiffPanelSelection, useDiffPanelStore } from "../diffPanelStore";
@@ -49,6 +49,7 @@ import { useProject, useThread } from "../state/entities";
 import { resolveThreadRouteRef } from "../threadRoutes";
 import { useClientSettings, useUpdateClientSettings } from "../hooks/useSettings";
 import { formatShortTimestamp } from "../timestampFormat";
+import { DiffFileOpenInEditorButton } from "./DiffFileOpenInEditorButton";
 import { DiffFilePathCopyButton } from "./DiffFilePathCopyButton";
 import { DiffPanelLoadingState, DiffPanelShell, type DiffPanelMode } from "./DiffPanelShell";
 import { DiffStatLabel } from "./chat/DiffStatLabel";
@@ -475,6 +476,26 @@ export default function DiffPanel({
     [codeViewFiles, collapseScopeKey],
   );
 
+  const launchDiffFileInEditor = useCallback(
+    (targetPath: string) => {
+      void (async () => {
+        const result = await openInPreferredEditor(targetPath);
+        if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
+          console.warn("Failed to open diff file in editor.", {
+            operation: "open-diff-file",
+            ...(routeThreadRef
+              ? {
+                  environmentId: routeThreadRef.environmentId,
+                  threadId: routeThreadRef.threadId,
+                }
+              : {}),
+            ...safeErrorLogAttributes(squashAtomCommandFailure(result)),
+          });
+        }
+      })();
+    },
+    [openInPreferredEditor, routeThreadRef],
+  );
   const openDiffFile = useCallback(
     (filePath: string) => {
       openDiffFilePrimaryAction({
@@ -482,27 +503,24 @@ export default function DiffPanel({
         filePath,
         activeCwd,
         repositoryRoot: activeRepositoryRoot,
-        openInEditor: (targetPath) => {
-          void (async () => {
-            const result = await openInPreferredEditor(targetPath);
-            if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
-              console.warn("Failed to open diff file in editor.", {
-                operation: "open-diff-file",
-                ...(routeThreadRef
-                  ? {
-                      environmentId: routeThreadRef.environmentId,
-                      threadId: routeThreadRef.threadId,
-                    }
-                  : {}),
-                ...safeErrorLogAttributes(squashAtomCommandFailure(result)),
-              });
-            }
-          })();
-        },
+        openInEditor: launchDiffFileInEditor,
       });
     },
-    [activeCwd, activeRepositoryRoot, openInPreferredEditor, routeThreadRef],
+    [activeCwd, activeRepositoryRoot, launchDiffFileInEditor, routeThreadRef],
   );
+  const openDiffFileExternally = useCallback(
+    (filePath: string) => {
+      openDiffFileInEditor({
+        filePath,
+        activeCwd,
+        repositoryRoot: activeRepositoryRoot,
+        openInEditor: launchDiffFileInEditor,
+      });
+    },
+    [activeCwd, activeRepositoryRoot, launchDiffFileInEditor],
+  );
+  const canOpenDiffFileExternally =
+    activeCwd != null && activeThread != null && (serverConfig?.availableEditors.length ?? 0) > 0;
   const toggleDiffFileCollapsed = useCallback(
     (fileKey: string) => {
       setCollapsedDiffFiles((current) => {
@@ -951,7 +969,8 @@ export default function DiffPanel({
                         node instanceof HTMLElement && node.hasAttribute("data-title"),
                     );
                     const filePath = title?.textContent?.trim();
-                    // The filename remains the explicit "open in editor" affordance.
+                    // The filename is the internal file-viewer affordance. Header buttons keep
+                    // external actions separate and return above before reaching this handler.
                     if (filePath) {
                       openDiffFile(filePath);
                       return;
@@ -979,9 +998,19 @@ export default function DiffPanel({
                     sectionId={reviewSectionId}
                     sectionTitle={reviewSectionTitle}
                     composerDraftTarget={composerDraftTarget}
-                    renderHeaderFilenameSuffix={(fileDiff) => (
-                      <DiffFilePathCopyButton filePath={resolveFileDiffPath(fileDiff)} />
-                    )}
+                    renderHeaderFilenameSuffix={(fileDiff) => {
+                      const filePath = resolveFileDiffPath(fileDiff);
+                      return (
+                        <span className="inline-flex items-center gap-0.5">
+                          <DiffFilePathCopyButton filePath={filePath} />
+                          <DiffFileOpenInEditorButton
+                            filePath={filePath}
+                            disabled={!canOpenDiffFileExternally}
+                            onOpen={openDiffFileExternally}
+                          />
+                        </span>
+                      );
+                    }}
                     renderHeaderPrefix={(fileDiff, fileKey, collapsed) => {
                       const filePath = resolveFileDiffPath(fileDiff);
                       return (
