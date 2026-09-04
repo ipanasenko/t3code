@@ -18,6 +18,7 @@ export interface ShortcutEventLike {
   ctrlKey: boolean;
   shiftKey: boolean;
   altKey: boolean;
+  getModifierState?(keyArg: string): boolean;
 }
 
 export interface ShortcutModifierStateLike {
@@ -70,6 +71,12 @@ function normalizeEventKey(key: string): string {
   const normalized = key.toLowerCase();
   if (normalized === "esc") return "escape";
   return normalized;
+}
+
+export function isAltGraphShortcutEvent(
+  event: Pick<ShortcutEventLike, "getModifierState">,
+): boolean {
+  return event.getModifierState?.("AltGraph") === true;
 }
 
 function resolveEventKeys(event: ShortcutEventLike): Set<string> {
@@ -211,6 +218,7 @@ export function resolveShortcutCommand(
   keybindings: ResolvedKeybindingsConfig,
   options?: ShortcutMatchOptions,
 ): KeybindingCommand | null {
+  if (isAltGraphShortcutEvent(event)) return null;
   const platform = resolvePlatform(options);
   const context = resolveContext(options);
 

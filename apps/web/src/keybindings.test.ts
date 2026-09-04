@@ -158,12 +158,12 @@ const DEFAULT_BINDINGS = compile([
   { shortcut: modShortcut("n", { shiftKey: true }), command: "chat.newLocal" },
   { shortcut: modShortcut("o"), command: "editor.openFavorite" },
   {
-    shortcut: altShortcut(","),
+    shortcut: modShortcut(",", { altKey: true }),
     command: "reasoning.decrease",
     whenAst: whenNot(whenIdentifier("terminalFocus")),
   },
   {
-    shortcut: altShortcut("."),
+    shortcut: modShortcut(".", { altKey: true }),
     command: "reasoning.increase",
     whenAst: whenNot(whenIdentifier("terminalFocus")),
   },
@@ -560,29 +560,85 @@ describe("reasoning cycle shortcuts", () => {
     assert.isNull(reasoningCycleDirectionFromCommand(null));
   });
 
-  it("matches macOS Option punctuation by physical key code", () => {
+  it("matches macOS Mod+Option punctuation by physical key code", () => {
     assert.strictEqual(
-      resolveShortcutCommand(event({ key: "≤", code: "Comma", altKey: true }), DEFAULT_BINDINGS, {
-        platform: "MacIntel",
-        context: { terminalFocus: false },
-      }),
+      resolveShortcutCommand(
+        event({ key: "≤", code: "Comma", metaKey: true, altKey: true }),
+        DEFAULT_BINDINGS,
+        {
+          platform: "MacIntel",
+          context: { terminalFocus: false },
+        },
+      ),
       "reasoning.decrease",
     );
     assert.strictEqual(
-      resolveShortcutCommand(event({ key: "≥", code: "Period", altKey: true }), DEFAULT_BINDINGS, {
-        platform: "MacIntel",
-        context: { terminalFocus: false },
-      }),
+      resolveShortcutCommand(
+        event({ key: "≥", code: "Period", metaKey: true, altKey: true }),
+        DEFAULT_BINDINGS,
+        {
+          platform: "MacIntel",
+          context: { terminalFocus: false },
+        },
+      ),
       "reasoning.increase",
+    );
+  });
+
+  it("ignores AltGraph punctuation without blocking intentional Ctrl+Alt shortcuts", () => {
+    const getAltGraphModifierState = (modifier: string) => modifier === "AltGraph";
+    assert.isNull(
+      resolveShortcutCommand(
+        event({
+          key: "<",
+          code: "Comma",
+          ctrlKey: true,
+          altKey: true,
+          getModifierState: getAltGraphModifierState,
+        }),
+        DEFAULT_BINDINGS,
+        { platform: "Win32", context: { terminalFocus: false } },
+      ),
+    );
+    assert.isNull(
+      resolveShortcutCommand(
+        event({
+          key: ">",
+          code: "Period",
+          ctrlKey: true,
+          altKey: true,
+          getModifierState: getAltGraphModifierState,
+        }),
+        DEFAULT_BINDINGS,
+        { platform: "Linux", context: { terminalFocus: false } },
+      ),
+    );
+    assert.strictEqual(
+      resolveShortcutCommand(
+        event({
+          key: ",",
+          code: "Comma",
+          ctrlKey: true,
+          altKey: true,
+          getModifierState: () => false,
+        }),
+        DEFAULT_BINDINGS,
+        { platform: "Win32", context: { terminalFocus: false } },
+      ),
+      "reasoning.decrease",
     );
   });
 
   it("leaves terminal focus untouched and preserves later-binding precedence", () => {
     assert.isNull(
-      resolveShortcutCommand(event({ key: ",", code: "Comma", altKey: true }), DEFAULT_BINDINGS, {
-        platform: "MacIntel",
-        context: { terminalFocus: true },
-      }),
+      resolveShortcutCommand(
+        event({ key: ",", code: "Comma", metaKey: true, altKey: true }),
+        DEFAULT_BINDINGS,
+        {
+          platform: "MacIntel",
+          context: { terminalFocus: true },
+        },
+      ),
     );
 
     const overridden = compile([
