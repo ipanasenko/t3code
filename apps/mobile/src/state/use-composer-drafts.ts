@@ -20,7 +20,7 @@ import {
   isComposerAttachmentFileRetained,
   retainComposerAttachmentFile,
 } from "../lib/composerAttachmentFiles";
-import type { DraftComposerAttachment, DraftComposerFileAttachment } from "../lib/composerImages";
+import type { DraftComposerAttachment, FileBackedComposerAttachment } from "../lib/composerImages";
 import { SerializedAsyncQueue } from "../lib/serialized-async-queue";
 import { appAtomRegistry } from "./atom-registry";
 import {
@@ -238,10 +238,6 @@ export function decodePersistedComposerState(value: unknown): {
   };
 }
 
-export function decodePersistedComposerDrafts(value: unknown): Record<string, ComposerDraft> {
-  return decodePersistedComposerState(value).drafts;
-}
-
 async function getComposerDraftsFile() {
   const { Directory, File, Paths } = await import("expo-file-system");
   const directory = new Directory(Paths.document, COMPOSER_DRAFTS_DIRECTORY);
@@ -376,7 +372,7 @@ function isComposerAttachmentFileReferenced(fileUri: string): boolean {
   return [...drafts, ...queuedMessages, ...signedOutAttachmentOwners()].some((owner) =>
     owner.attachments.some(
       (attachment) =>
-        attachment.type === "file" &&
+        attachment.fileUri !== undefined &&
         composerAttachmentFileReferenceKey(attachment.fileUri) === referenceKey,
     ),
   );
@@ -403,9 +399,9 @@ export async function releaseUnusedComposerAttachmentFiles(
   attachments: ReadonlyArray<DraftComposerAttachment>,
 ): Promise<void> {
   const candidates = new Set(
-    attachments
-      .filter((attachment) => attachment.type === "file")
-      .map((attachment) => attachment.fileUri),
+    attachments.flatMap((attachment) =>
+      attachment.fileUri !== undefined ? [attachment.fileUri] : [],
+    ),
   );
   const uploadCandidates = new Map<EnvironmentId, Set<string>>();
   for (const attachment of attachments) {
@@ -454,7 +450,7 @@ export async function releaseUnusedComposerAttachmentFiles(
     incomingShareFileUris = new Set(
       incomingShares.flatMap((share) =>
         share.attachments.flatMap((attachment) =>
-          attachment.type === "file"
+          attachment.fileUri !== undefined
             ? [composerAttachmentFileReferenceKey(attachment.fileUri)]
             : [],
         ),
@@ -509,7 +505,8 @@ export function scheduleUnusedComposerAttachmentCleanup(
 ): void {
   if (
     !attachments.some(
-      (attachment) => attachment.type === "file" || attachment.uploadedAttachmentId !== undefined,
+      (attachment) =>
+        attachment.fileUri !== undefined || attachment.uploadedAttachmentId !== undefined,
     )
   ) {
     return;
@@ -521,7 +518,7 @@ export function scheduleUnusedComposerAttachmentCleanup(
 
 /** Keeps a native preview or upload readable until it finishes, then retries ownership cleanup. */
 export function retainComposerAttachmentFileForPreview(
-  attachment: DraftComposerFileAttachment,
+  attachment: FileBackedComposerAttachment,
 ): () => void {
   return retainComposerAttachmentFile(attachment.fileUri, () => {
     scheduleUnusedComposerAttachmentCleanup([attachment]);
@@ -1052,15 +1049,33 @@ export function copyComposerDraftContentState(
   if (!sourceHasContent || targetHasContent) {
     return current;
   }
+  // Pending uploads live on one server. Crossing environments keeps the local
+  // bytes (the upload worker re-sends them to the new key's environment) but
+  // drops the old stamp, so it cannot pin the source environment's pending
+  // upload alive from the copy.
+  const targetEnvironmentId = composerDraftEnvironmentId(targetDraftKey, []);
+  const attachments = source.attachments.map((attachment) =>
+    attachment.uploadEnvironmentId !== undefined &&
+    attachment.uploadEnvironmentId !== targetEnvironmentId
+      ? stripAttachmentUploadReference(attachment)
+      : attachment,
+  );
   return {
     ...current,
     [targetDraftKey]: {
       ...target,
       text: source.text,
-      attachments: source.attachments,
+      attachments,
       ...(source.importedShareIds ? { importedShareIds: source.importedShareIds } : {}),
     },
   };
+}
+
+function stripAttachmentUploadReference(
+  attachment: DraftComposerAttachment,
+): DraftComposerAttachment {
+  const { uploadedAttachmentId: _id, uploadEnvironmentId: _environmentId, ...rest } = attachment;
+  return rest;
 }
 
 export async function copyComposerDraftContentIfEmpty(
