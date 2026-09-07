@@ -24,8 +24,7 @@ export function DiffFileHeaderActionButton({
           <Button
             ref={ref}
             size="icon-micro"
-            variant="ghost"
-            className="text-muted-foreground [:hover,[data-pressed]]:bg-transparent disabled:pointer-events-auto disabled:cursor-not-allowed"
+            variant="diff-header"
             aria-label={ariaLabel}
             disabled={disabled}
             onClick={onClick}
