@@ -4181,6 +4181,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
             selectedProviderModels,
             selectedModel,
             selectedProvider,
+            settings.planModeEnabled,
           ),
           modelOptions: currentModelOptions,
           prompt: currentPrompt,
@@ -4259,6 +4260,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     selectedProviderModels,
     setPrompt,
     setProviderModelOptions,
+    settings.planModeEnabled,
     stashCurrentPrompt,
     terminalOpen,
   ]);
