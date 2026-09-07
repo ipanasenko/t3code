@@ -33,6 +33,7 @@ import { cn } from "~/lib/utils";
 import { selectThreadDiffPanelSelection, useDiffPanelStore } from "../diffPanelStore";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useTheme } from "../hooks/useTheme";
+import { readLocalApi } from "../localApi";
 import {
   openRemoteEditorUrl,
   useRemoteCapableEditors,
@@ -56,7 +57,6 @@ import { useProject, useThread } from "../state/entities";
 import { resolveThreadRouteRef } from "../threadRoutes";
 import { useClientSettings, useUpdateClientSettings } from "../hooks/useSettings";
 import { formatShortTimestamp } from "../timestampFormat";
-import { DiffFileOpenInEditorButton } from "./DiffFileOpenInEditorButton";
 import { DiffFilePathCopyButton } from "./DiffFilePathCopyButton";
 import { DiffPanelLoadingState, DiffPanelShell, type DiffPanelMode } from "./DiffPanelShell";
 import { DiffStatLabel } from "./chat/DiffStatLabel";
@@ -995,6 +995,36 @@ export default function DiffPanel({
               <div className="flex min-h-0 flex-1 overflow-hidden">
                 <div
                   className="min-h-0 min-w-0 flex-1"
+                  onContextMenuCapture={(event) => {
+                    const header = event.nativeEvent
+                      .composedPath()
+                      .find(
+                        (node): node is HTMLElement =>
+                          node instanceof HTMLElement && node.hasAttribute("data-diffs-header"),
+                      );
+                    const filePath = header?.querySelector("[data-title]")?.textContent?.trim();
+                    if (!filePath) return;
+                    const file = codeViewFiles.find((candidate) => candidate.filePath === filePath);
+                    if (!file) return;
+                    const api = readLocalApi();
+                    if (!api) return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    void api.contextMenu
+                      .show(
+                        [
+                          {
+                            id: "open-in-editor",
+                            label: "Open in editor",
+                            disabled: !canOpenDiffFileExternally,
+                          },
+                        ],
+                        { x: event.clientX, y: event.clientY },
+                      )
+                      .then((action) => {
+                        if (action === "open-in-editor") openDiffFileExternally(file.filePath);
+                      });
+                  }}
                   onClickCapture={(event) => {
                     const composedPath = event.nativeEvent.composedPath?.() ?? [];
                     for (const node of composedPath) {
@@ -1010,8 +1040,7 @@ export default function DiffPanel({
                         node instanceof HTMLElement && node.hasAttribute("data-title"),
                     );
                     const filePath = title?.textContent?.trim();
-                    // The filename is the internal file-viewer affordance. Header buttons keep
-                    // external actions separate and return above before reaching this handler.
+                    // The filename opens the internal file viewer; the rest of the header collapses.
                     if (filePath) {
                       openDiffFile(filePath);
                       return;
@@ -1039,19 +1068,9 @@ export default function DiffPanel({
                     sectionId={reviewSectionId}
                     sectionTitle={reviewSectionTitle}
                     composerDraftTarget={composerDraftTarget}
-                    renderHeaderFilenameSuffix={(fileDiff) => {
-                      const filePath = resolveFileDiffPath(fileDiff);
-                      return (
-                        <span className="inline-flex items-center gap-0.5">
-                          <DiffFilePathCopyButton filePath={filePath} />
-                          <DiffFileOpenInEditorButton
-                            filePath={filePath}
-                            disabled={!canOpenDiffFileExternally}
-                            onOpen={openDiffFileExternally}
-                          />
-                        </span>
-                      );
-                    }}
+                    renderHeaderFilenameSuffix={(fileDiff) => (
+                      <DiffFilePathCopyButton filePath={resolveFileDiffPath(fileDiff)} />
+                    )}
                     renderHeaderPrefix={(fileDiff, fileKey, collapsed) => {
                       const filePath = resolveFileDiffPath(fileDiff);
                       return (
