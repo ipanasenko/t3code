@@ -42,7 +42,7 @@ function testFile(readAlloc: FileSystem.File["readAlloc"]): FileSystem.File {
   return {
     [FileSystem.FileTypeId]: FileSystem.FileTypeId,
     stat: Effect.succeed(fileInfo(0)),
-    seek: () => Effect.void,
+    seek: () => Effect.succeed(FileSystem.Size(0)),
     sync: Effect.void,
     read: () => Effect.succeed(FileSystem.Size(0)),
     readAlloc,
