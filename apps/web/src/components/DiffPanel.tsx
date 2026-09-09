@@ -25,7 +25,12 @@ import {
 import * as Schema from "effect/Schema";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCodeViewFileReveal } from "./diffs/useCodeViewFileReveal";
-import { useOpenInPreferredEditor, usePreferredEditor } from "../editorPreferences";
+import {
+  resolveAndPersistPreferredEditor,
+  useOpenInPreferredEditor,
+  usePreferredEditor,
+} from "../editorPreferences";
+import { openInEditorMenuLabel } from "../editorLabels";
 import { type DraftId } from "../composerDraftStore";
 import { openDiffFileInEditor, openDiffFilePrimaryAction } from "../diffFileActions";
 import { useCheckpointDiff } from "~/lib/checkpointDiffState";
@@ -1008,6 +1013,12 @@ export default function DiffPanel({
                     if (!file) return;
                     const api = readLocalApi();
                     if (!api) return;
+                    const preferredEditor =
+                      remoteOpenResolution.state.mode === "remote-links"
+                        ? preferredRemoteEditor
+                        : remoteOpenResolution.state.mode === "local-exec"
+                          ? resolveAndPersistPreferredEditor(serverConfig?.availableEditors ?? [])
+                          : null;
                     event.preventDefault();
                     event.stopPropagation();
                     void api.contextMenu
@@ -1015,7 +1026,7 @@ export default function DiffPanel({
                         [
                           {
                             id: "open-in-editor",
-                            label: "Open in editor",
+                            label: openInEditorMenuLabel(preferredEditor),
                             disabled: !canOpenDiffFileExternally,
                           },
                         ],
