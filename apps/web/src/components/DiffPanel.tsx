@@ -167,6 +167,7 @@ export default function DiffPanel({
   const openInPreferredEditor = useOpenInPreferredEditor(
     activeThread?.environmentId ?? null,
     serverConfig?.availableEditors ?? [],
+    serverConfig?.shellRevealInFileManager === true,
   );
   const remoteOpenResolution = useRemoteOpenResolution(activeThread?.environmentId ?? null);
   const remoteCapableEditors = useRemoteCapableEditors();
@@ -1026,7 +1027,12 @@ export default function DiffPanel({
                         [
                           {
                             id: "open-in-editor",
-                            label: openInEditorMenuLabel(preferredEditor),
+                            label: openInEditorMenuLabel(
+                              preferredEditor,
+                              serverConfig?.shellRevealInFileManager === true
+                                ? serverConfig.environment.platform.os
+                                : undefined,
+                            ),
                             disabled: !canOpenDiffFileExternally,
                           },
                         ],

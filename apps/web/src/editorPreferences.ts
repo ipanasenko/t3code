@@ -60,9 +60,22 @@ export function resolveAndPersistPreferredEditor(
   return editor ?? null;
 }
 
+export function preferredEditorLaunchInput(
+  targetPath: string,
+  editor: EditorId,
+  revealFileManager: boolean,
+) {
+  return {
+    cwd: targetPath,
+    editor,
+    ...(revealFileManager && editor === "file-manager" ? { reveal: true } : {}),
+  };
+}
+
 export function useOpenInPreferredEditor(
   environmentId: EnvironmentId | null,
   availableEditors: readonly EditorId[],
+  revealFileManager = false,
 ) {
   const openInEditor = useAtomCommand(shellEnvironment.openInEditor, {
     reportFailure: false,
@@ -103,13 +116,10 @@ export function useOpenInPreferredEditor(
       }
       const result = await openInEditor({
         environmentId,
-        input: {
-          cwd: targetPath,
-          editor,
-        },
+        input: preferredEditorLaunchInput(targetPath, editor, revealFileManager),
       });
       return mapAtomCommandResult(result, () => editor);
     },
-    [availableEditors, environmentId, openInEditor],
+    [availableEditors, environmentId, openInEditor, revealFileManager],
   );
 }

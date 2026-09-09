@@ -22,7 +22,11 @@ describe("openInEditorMenuLabel", () => {
     expect(openInEditorMenuLabel("zed")).toBe("Open in Zed");
   });
 
-  it("keeps the generic label for the default file handler and missing preferences", () => {
+  it("names the platform file manager when the server supports reveal", () => {
+    expect(openInEditorMenuLabel("file-manager", "darwin")).toBe("Open in Finder");
+  });
+
+  it("keeps the generic label when the platform or preference is missing", () => {
     expect(openInEditorMenuLabel("file-manager")).toBe("Open in editor");
     expect(openInEditorMenuLabel(null)).toBe("Open in editor");
   });
