@@ -2419,12 +2419,24 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   // ------------------------------------------------------------------
   // Sync refs back to parent
   // ------------------------------------------------------------------
+  const restoreDraftAfterPendingRef = useRef(false);
   useEffect(() => {
     // While a pending question is visible, promptRef is temporarily the
     // custom-answer buffer. Restore the draft as soon as that editor state
     // ends, even when the draft prompt itself did not change.
-    if (activePendingProgress !== null) return;
+    if (activePendingProgress !== null) {
+      restoreDraftAfterPendingRef.current = true;
+      return;
+    }
     promptRef.current = prompt;
+    if (restoreDraftAfterPendingRef.current) {
+      // The cursor and trigger still describe the custom-answer buffer, so
+      // rebuild both from the restored draft instead of clamping them.
+      restoreDraftAfterPendingRef.current = false;
+      setComposerCursor(collapseExpandedComposerCursor(prompt, prompt.length));
+      setComposerTrigger(detectComposerTrigger(prompt, prompt.length));
+      return;
+    }
     setComposerCursor((existing) => clampCollapsedComposerCursor(prompt, existing));
   }, [activePendingProgress, prompt, promptRef]);
 
@@ -4340,24 +4352,26 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
           action: { type: "cycle", direction: reasoningDirection },
         });
         if (transition.status === "changed") {
-          if (transition.prompt !== currentPrompt && !editorShowsDraftPrompt) {
-            return;
-          }
           if (transition.prompt !== currentPrompt) {
-            const currentExpandedCursor =
-              composerEditorRef.current?.readSnapshot().expandedCursor ??
-              expandCollapsedComposerCursor(currentPrompt, composerCursor);
-            const nextExpandedCursor = mapComposerCursorAcrossLeadingPromptChange(
-              currentPrompt,
-              transition.prompt,
-              currentExpandedCursor,
-            );
-            promptRef.current = transition.prompt;
             setPrompt(transition.prompt);
-            setComposerCursor(
-              collapseExpandedComposerCursor(transition.prompt, nextExpandedCursor),
-            );
-            setComposerTrigger(detectComposerTrigger(transition.prompt, nextExpandedCursor));
+            // When a pending question or approval hides the editor, the draft
+            // is updated in the store only. The cursor and trigger belong to
+            // the visible editor state and are rebuilt when the draft returns.
+            if (editorShowsDraftPrompt) {
+              const currentExpandedCursor =
+                composerEditorRef.current?.readSnapshot().expandedCursor ??
+                expandCollapsedComposerCursor(currentPrompt, composerCursor);
+              const nextExpandedCursor = mapComposerCursorAcrossLeadingPromptChange(
+                currentPrompt,
+                transition.prompt,
+                currentExpandedCursor,
+              );
+              promptRef.current = transition.prompt;
+              setComposerCursor(
+                collapseExpandedComposerCursor(transition.prompt, nextExpandedCursor),
+              );
+              setComposerTrigger(detectComposerTrigger(transition.prompt, nextExpandedCursor));
+            }
           }
           if (transition.modelOptions !== currentModelOptions) {
             setProviderModelOptions(
@@ -4371,7 +4385,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
               },
             );
           }
-        } else if (transition.status === "blocked" && editorShowsDraftPrompt) {
+        } else if (transition.status === "blocked") {
           toastManager.add({
             type: "info",
             title: "Remove “ultrathink” from the prompt text to change reasoning.",
