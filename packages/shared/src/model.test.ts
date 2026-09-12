@@ -563,7 +563,7 @@ describe("resolveReasoningTransition", () => {
         capabilities: oneChoiceCaps,
         action: { type: "select", descriptorId: "reasoning", value: "missing" },
       }),
-    ).toEqual({ status: "invalid", reason: "unknown-value" });
+    ).toEqual({ status: "unsupported", reason: "unknown-value" });
   });
 
   it("replaces a stale persisted value when selecting the effective default", () => {
@@ -589,15 +589,6 @@ describe("resolveReasoningTransition", () => {
       action: { type: "select", descriptorId: "reasoningEffort", value: "high" },
     });
     expect(selected).toEqual(cycled);
-  });
-
-  it("returns not-applicable for non-reasoning mouse selections", () => {
-    expect(
-      transition({
-        capabilities: claudeCaps,
-        action: { type: "select", descriptorId: "contextWindow", value: "200k" },
-      }),
-    ).toEqual({ status: "not-applicable" });
   });
 });
 

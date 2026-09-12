@@ -2548,7 +2548,6 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     activePendingProgress?.customAnswer,
     activePendingProgress?.activeQuestion?.id,
     activePendingUserInput?.requestId,
-    prompt,
     promptRef,
   ]);
 
@@ -4315,6 +4314,89 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     setIsStashMenuOpen(false);
   }, [prompt]);
 
+  // The cursor is only needed as a fallback when the editor has no snapshot,
+  // so read it through a ref instead of re-binding the shortcut listener on
+  // every caret move.
+  const composerCursorRef = useRef(composerCursor);
+  composerCursorRef.current = composerCursor;
+
+  const applyReasoningCycle = useCallback(
+    (direction: "increase" | "decrease") => {
+      const editorShowsDraftPrompt = !isComposerApprovalState && activePendingProgress === null;
+      const currentPrompt = editorShowsDraftPrompt
+        ? promptRef.current
+        : (getComposerDraft(composerDraftTarget)?.prompt ?? "");
+      const currentModelOptions = composerModelOptions?.[selectedInstanceId];
+      const transition = resolveReasoningTransition({
+        capabilities: getProviderModelCapabilities(
+          selectedProviderModels,
+          selectedModel,
+          selectedProvider,
+          settings.planModeEnabled,
+        ),
+        modelOptions: currentModelOptions,
+        prompt: currentPrompt,
+        action: { type: "cycle", direction },
+      });
+      if (transition.status === "blocked") {
+        toastManager.add({
+          type: "info",
+          title: "Remove “ultrathink” from the prompt text to change reasoning.",
+        });
+        return;
+      }
+      if (transition.status === "unsupported") {
+        toastManager.add({
+          type: "info",
+          title: "This model has no reasoning levels to switch between.",
+        });
+        return;
+      }
+      if (transition.status !== "changed") return;
+      if (transition.prompt !== currentPrompt) {
+        setPrompt(transition.prompt);
+        // When a pending question or approval hides the editor, the draft
+        // is updated in the store only. The cursor and trigger belong to
+        // the visible editor state and are rebuilt when the draft returns.
+        if (editorShowsDraftPrompt) {
+          const currentExpandedCursor =
+            composerEditorRef.current?.readSnapshot().expandedCursor ??
+            expandCollapsedComposerCursor(currentPrompt, composerCursorRef.current);
+          const nextExpandedCursor = mapComposerCursorAcrossLeadingPromptChange(
+            currentPrompt,
+            transition.prompt,
+            currentExpandedCursor,
+          );
+          promptRef.current = transition.prompt;
+          setComposerCursor(collapseExpandedComposerCursor(transition.prompt, nextExpandedCursor));
+          setComposerTrigger(detectComposerTrigger(transition.prompt, nextExpandedCursor));
+        }
+      }
+      if (transition.modelOptions !== currentModelOptions) {
+        setProviderModelOptions(composerDraftTarget, selectedProvider, transition.modelOptions, {
+          instanceId: selectedInstanceId,
+          model: selectedModel,
+          persistSticky: true,
+        });
+      }
+    },
+    [
+      activePendingProgress,
+      composerDraftTarget,
+      composerModelOptions,
+      getComposerDraft,
+      isComposerApprovalState,
+      promptRef,
+      selectedInstanceId,
+      selectedModel,
+      selectedProvider,
+      selectedProviderModels,
+      setPrompt,
+      setProviderModelOptions,
+      settings.planModeEnabled,
+    ],
+  );
+
   useEffect(() => {
     const handler = (event: globalThis.KeyboardEvent) => {
       const command = resolveShortcutCommand(event, keybindings, {
@@ -4335,67 +4417,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
         return;
       }
       if (reasoningDirection !== null) {
-        const editorShowsDraftPrompt = !isComposerApprovalState && activePendingProgress === null;
-        const currentPrompt = editorShowsDraftPrompt
-          ? promptRef.current
-          : (getComposerDraft(composerDraftTarget)?.prompt ?? "");
-        const currentModelOptions = composerModelOptions?.[selectedInstanceId];
-        const transition = resolveReasoningTransition({
-          capabilities: getProviderModelCapabilities(
-            selectedProviderModels,
-            selectedModel,
-            selectedProvider,
-            settings.planModeEnabled,
-          ),
-          modelOptions: currentModelOptions,
-          prompt: currentPrompt,
-          action: { type: "cycle", direction: reasoningDirection },
-        });
-        if (transition.status === "changed") {
-          if (transition.prompt !== currentPrompt) {
-            setPrompt(transition.prompt);
-            // When a pending question or approval hides the editor, the draft
-            // is updated in the store only. The cursor and trigger belong to
-            // the visible editor state and are rebuilt when the draft returns.
-            if (editorShowsDraftPrompt) {
-              const currentExpandedCursor =
-                composerEditorRef.current?.readSnapshot().expandedCursor ??
-                expandCollapsedComposerCursor(currentPrompt, composerCursor);
-              const nextExpandedCursor = mapComposerCursorAcrossLeadingPromptChange(
-                currentPrompt,
-                transition.prompt,
-                currentExpandedCursor,
-              );
-              promptRef.current = transition.prompt;
-              setComposerCursor(
-                collapseExpandedComposerCursor(transition.prompt, nextExpandedCursor),
-              );
-              setComposerTrigger(detectComposerTrigger(transition.prompt, nextExpandedCursor));
-            }
-          }
-          if (transition.modelOptions !== currentModelOptions) {
-            setProviderModelOptions(
-              composerDraftTarget,
-              selectedProvider,
-              transition.modelOptions,
-              {
-                instanceId: selectedInstanceId,
-                model: selectedModel,
-                persistSticky: true,
-              },
-            );
-          }
-        } else if (transition.status === "blocked") {
-          toastManager.add({
-            type: "info",
-            title: "Remove “ultrathink” from the prompt text to change reasoning.",
-          });
-        } else if (transition.status === "unsupported") {
-          toastManager.add({
-            type: "info",
-            title: "This model does not advertise reasoning levels.",
-          });
-        }
+        applyReasoningCycle(reasoningDirection);
         return;
       }
       if (pendingUserInputs.length > 0 && !isComposerApprovalState) {
@@ -4411,22 +4433,12 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     return () => window.removeEventListener("keydown", handler, true);
   }, [
     activePendingProgress,
-    composerDraftTarget,
-    composerCursor,
-    composerModelOptions,
-    getComposerDraft,
+    applyReasoningCycle,
     isComposerApprovalState,
     isComposerModelPickerOpen,
     keybindings,
     pendingUserInputs.length,
     projectSelectionRequired,
-    selectedInstanceId,
-    selectedModel,
-    selectedProvider,
-    selectedProviderModels,
-    setPrompt,
-    setProviderModelOptions,
-    settings.planModeEnabled,
     stashCurrentPrompt,
     terminalOpen,
   ]);

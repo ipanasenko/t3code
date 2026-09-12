@@ -12,6 +12,7 @@ import {
   getProviderOptionCurrentValue,
   getProviderOptionDescriptors,
   isClaudeUltrathinkPrompt,
+  isReasoningDescriptorId,
   normalizeModelSlug,
   resolveReasoningTransition,
   stripClaudeUltrathinkPrefix,
@@ -140,25 +141,23 @@ export function resolveTraitsSelectChange(input: {
   prompt: string;
   modelOptions: ProviderOptions | null | undefined;
 }): { prompt: string; modelOptions: ProviderOptions | undefined } | null {
+  if (!isReasoningDescriptorId(input.descriptor.id)) {
+    return {
+      prompt: input.prompt,
+      modelOptions: buildProviderOptionSelectionsFromDescriptors(
+        replaceDescriptorCurrentValue(input.descriptors, input.descriptor.id, input.value),
+      ),
+    };
+  }
   const transition = resolveReasoningTransition({
     capabilities: input.caps,
     modelOptions: input.modelOptions,
     prompt: input.prompt,
     action: { type: "select", descriptorId: input.descriptor.id, value: input.value },
   });
-  if (transition.status === "changed") {
-    return { prompt: transition.prompt, modelOptions: transition.modelOptions };
-  }
-  if (transition.status !== "not-applicable") {
-    return null;
-  }
-
-  return {
-    prompt: input.prompt,
-    modelOptions: buildProviderOptionSelectionsFromDescriptors(
-      replaceDescriptorCurrentValue(input.descriptors, input.descriptor.id, input.value),
-    ),
-  };
+  return transition.status === "changed"
+    ? { prompt: transition.prompt, modelOptions: transition.modelOptions }
+    : null;
 }
 
 function getSelectedTraits(

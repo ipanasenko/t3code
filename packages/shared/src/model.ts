@@ -245,12 +245,18 @@ export type ReasoningTransitionResult =
   | { status: "blocked"; reason: "ultrathink-in-prompt-body" }
   | {
       status: "unsupported";
-      reason: "missing-reasoning-option" | "missing-choices" | "unsupported-prompt-injected-value";
-    }
-  | { status: "not-applicable" }
-  | { status: "invalid"; reason: "unknown-value" };
+      reason:
+        | "missing-reasoning-option"
+        | "missing-choices"
+        | "unsupported-prompt-injected-value"
+        | "unknown-value";
+    };
 
 const REASONING_DESCRIPTOR_IDS = new Set(["reasoningEffort", "effort", "reasoning"]);
+
+export function isReasoningDescriptorId(descriptorId: string): boolean {
+  return REASONING_DESCRIPTOR_IDS.has(descriptorId);
+}
 const ULTRATHINK_VALUE = "ultrathink";
 const ULTRATHINK_PREFIX = "Ultrathink:\n";
 const CLAUDE_SLASH_COMMAND = /^\/[^\s/]+(?:\s|$)/u;
@@ -339,10 +345,6 @@ export function resolveReasoningTransition(input: {
   action: ReasoningTransitionAction;
 }): ReasoningTransitionResult {
   const { capabilities, modelOptions, prompt, action } = input;
-  if (action.type === "select" && !REASONING_DESCRIPTOR_IDS.has(action.descriptorId)) {
-    return { status: "not-applicable" };
-  }
-
   const descriptor = findReasoningDescriptor(capabilities);
   if (!descriptor || (action.type === "select" && action.descriptorId !== descriptor.id)) {
     return { status: "unsupported", reason: "missing-reasoning-option" };
@@ -360,9 +362,6 @@ export function resolveReasoningTransition(input: {
     promptInjectedUltrathink && (hasLeadingPrefix || ultrathinkInBody);
   const persistedValue = resolvePersistedReasoningValue(descriptor, modelOptions);
   const rawPersistedValue = getProviderOptionStringSelectionValue(modelOptions, descriptor.id);
-  const persistedPromptInjectedValue =
-    rawPersistedValue !== undefined &&
-    (descriptor.promptInjectedValues?.includes(rawPersistedValue) ?? false);
   const currentValue = promptControlsUltrathink ? ULTRATHINK_VALUE : persistedValue;
   const cycleOptions = isClaudeSlashCommandPrompt(prompt)
     ? descriptor.options.filter((option) => !descriptor.promptInjectedValues?.includes(option.id))
@@ -371,7 +370,7 @@ export function resolveReasoningTransition(input: {
   let targetValue: string;
   if (action.type === "select") {
     if (!descriptor.options.some((option) => option.id === action.value)) {
-      return { status: "invalid", reason: "unknown-value" };
+      return { status: "unsupported", reason: "unknown-value" };
     }
     targetValue = action.value;
   } else if (currentValue === undefined) {
@@ -401,7 +400,7 @@ export function resolveReasoningTransition(input: {
 
   const targetOption = descriptor.options.find((option) => option.id === targetValue);
   if (!targetOption) {
-    return { status: "invalid", reason: "unknown-value" };
+    return { status: "unsupported", reason: "unknown-value" };
   }
 
   const targetIsPromptInjected = descriptor.promptInjectedValues?.includes(targetValue) ?? false;
@@ -415,12 +414,12 @@ export function resolveReasoningTransition(input: {
     : hasLeadingPrefix
       ? promptBody
       : prompt;
+  // Leave an implicit default implicit; any stored value (including a stale
+  // or prompt-injected one) is rewritten to the target.
   const nextModelOptions = targetIsPromptInjected
     ? removePromptInjectedReasoningSelection(modelOptions, descriptor)
-    : targetValue === persistedValue && !persistedPromptInjectedValue
-      ? rawPersistedValue === undefined || rawPersistedValue === persistedValue
-        ? (modelOptions ?? undefined)
-        : updateReasoningSelection(modelOptions, descriptor.id, targetValue)
+    : rawPersistedValue === undefined && targetValue === persistedValue
+      ? (modelOptions ?? undefined)
       : updateReasoningSelection(modelOptions, descriptor.id, targetValue);
   const normalizedInputOptions = modelOptions ?? undefined;
 
