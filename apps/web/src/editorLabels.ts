@@ -12,10 +12,7 @@ export function editorLabelForPlatform(editorId: EditorId, platform: string): st
   return editorLabels.get(editorId) ?? "Editor";
 }
 
-export function openInEditorMenuLabel(editorId: EditorId | null, platform?: string): string {
-  if (editorId === "file-manager" && platform) {
-    return `Open in ${getLocalFileManagerName(platform)}`;
-  }
+export function openInEditorMenuLabel(editorId: EditorId | null): string {
   return editorId === null || editorId === "file-manager"
     ? "Open in editor"
     : `Open in ${editorLabels.get(editorId) ?? "Editor"}`;

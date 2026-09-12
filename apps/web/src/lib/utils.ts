@@ -9,7 +9,7 @@ export function cn(...inputs: CxOptions) {
 }
 
 export function isMacPlatform(platform: string): boolean {
-  return /darwin|mac|iphone|ipad|ipod/i.test(platform);
+  return /mac|iphone|ipad|ipod/i.test(platform);
 }
 
 export function isWindowsPlatform(platform: string): boolean {

@@ -7,7 +7,7 @@ import {
   squashAtomCommandFailure,
 } from "@t3tools/client-runtime/state/runtime";
 import { safeErrorLogAttributes } from "@t3tools/client-runtime/errors";
-import { buildRemoteOpenUrl, type ScopedThreadRef, type TurnId } from "@t3tools/contracts";
+import type { ScopedThreadRef, TurnId } from "@t3tools/contracts";
 import {
   ArrowRightIcon,
   CheckIcon,
@@ -25,14 +25,14 @@ import {
 import * as Schema from "effect/Schema";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCodeViewFileReveal } from "./diffs/useCodeViewFileReveal";
-import {
-  resolveAndPersistPreferredEditor,
-  useOpenInPreferredEditor,
-  usePreferredEditor,
-} from "../editorPreferences";
+import { usePreferredEditor } from "../editorPreferences";
 import { openInEditorMenuLabel } from "../editorLabels";
 import { type DraftId } from "../composerDraftStore";
-import { openDiffFileInEditor, openDiffFilePrimaryAction } from "../diffFileActions";
+import {
+  openDiffFileInEditor,
+  openDiffFilePrimaryAction,
+  resolveDiffEditorLaunch,
+} from "../diffFileActions";
 import { useCheckpointDiff } from "~/lib/checkpointDiffState";
 import { cn } from "~/lib/utils";
 import { selectThreadDiffPanelSelection, useDiffPanelStore } from "../diffPanelStore";
@@ -40,11 +40,16 @@ import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useTheme } from "../hooks/useTheme";
 import { readLocalApi } from "../localApi";
 import {
+  revealInFileExplorerLabelForKind,
+  revealInFileExplorerLabelForOs,
+} from "./preview/fileExplorerLabel";
+import {
   openRemoteEditorUrl,
   useRemoteCapableEditors,
   useRemoteOpenHint,
   useRemoteOpenResolution,
 } from "../remoteOpen";
+import { shellEnvironment } from "../state/shell";
 import {
   buildFileDiffContentVersion,
   buildFileDiffIdentityKey,
@@ -164,15 +169,16 @@ export default function DiffPanel({
   const serverConfig = useAtomValue(
     serverEnvironment.configValueAtom(activeThread?.environmentId ?? null),
   );
-  const openInPreferredEditor = useOpenInPreferredEditor(
-    activeThread?.environmentId ?? null,
-    serverConfig?.availableEditors ?? [],
-    serverConfig?.shellRevealInFileManager === true,
-  );
+  const openInEditor = useAtomCommand(shellEnvironment.openInEditor, { reportFailure: false });
   const remoteOpenResolution = useRemoteOpenResolution(activeThread?.environmentId ?? null);
   const remoteCapableEditors = useRemoteCapableEditors();
-  const [preferredRemoteEditor, setPreferredRemoteEditor] =
-    usePreferredEditor(remoteCapableEditors);
+  // Same rule as the Open picker: off-machine clients pick from editors that
+  // speak SSH deep links, not from what the server found on its PATH.
+  const [preferredEditor] = usePreferredEditor(
+    remoteOpenResolution.state.mode === "local-exec"
+      ? (serverConfig?.availableEditors ?? [])
+      : remoteCapableEditors,
+  );
   const [, markRemoteOpenHintSeen] = useRemoteOpenHint();
   const getDiffFileContents = useAtomCommand(reviewEnvironment.diffFileContents);
   const gitStatusQuery = useEnvironmentQuery(
@@ -490,52 +496,51 @@ export default function DiffPanel({
     [codeViewFiles, collapseScopeKey, requestTreeReveal],
   );
 
+  const revealInFileManager = serverConfig?.shellRevealInFileManager === true;
   const launchDiffFileInEditor = useCallback(
     (targetPath: string) => {
-      if (remoteOpenResolution.state.mode === "remote-unavailable") return;
-      if (remoteOpenResolution.state.mode === "remote-links") {
-        if (!preferredRemoteEditor) return;
-        const url = buildRemoteOpenUrl({
-          editor: preferredRemoteEditor,
-          host: remoteOpenResolution.state.host.host,
-          absolutePath: targetPath,
-        });
-        if (!url) return;
-        void openRemoteEditorUrl(url).then((opened) => {
-          if (!opened) {
-            console.warn("Failed to open remote diff file in editor.", {
-              operation: "open-remote-diff-file",
-            });
-            return;
-          }
-          markRemoteOpenHintSeen();
-          setPreferredRemoteEditor(preferredRemoteEditor);
+      const environmentId = activeThread?.environmentId;
+      if (environmentId === undefined) return;
+      const launch = resolveDiffEditorLaunch({
+        remoteOpen: remoteOpenResolution.state,
+        editor: preferredEditor,
+        targetPath,
+        revealInFileManager,
+      });
+      if (launch.kind === "unavailable") return;
+      if (launch.kind === "remote-url") {
+        void openRemoteEditorUrl(launch.url).then((opened) => {
+          if (opened) markRemoteOpenHintSeen();
+          else console.warn("Failed to open remote diff file in editor.");
         });
         return;
       }
-      void (async () => {
-        const result = await openInPreferredEditor(targetPath);
+      void openInEditor({
+        environmentId,
+        input: {
+          cwd: targetPath,
+          editor: launch.editor,
+          ...(launch.reveal ? { reveal: true } : {}),
+        },
+      }).then((result) => {
         if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
           console.warn("Failed to open diff file in editor.", {
             operation: "open-diff-file",
-            ...(routeThreadRef
-              ? {
-                  environmentId: routeThreadRef.environmentId,
-                  threadId: routeThreadRef.threadId,
-                }
-              : {}),
+            environmentId,
+            ...(routeThreadRef ? { threadId: routeThreadRef.threadId } : {}),
             ...safeErrorLogAttributes(squashAtomCommandFailure(result)),
           });
         }
-      })();
+      });
     },
     [
+      activeThread?.environmentId,
       markRemoteOpenHintSeen,
-      openInPreferredEditor,
-      preferredRemoteEditor,
+      openInEditor,
+      preferredEditor,
       remoteOpenResolution.state,
+      revealInFileManager,
       routeThreadRef,
-      setPreferredRemoteEditor,
     ],
   );
   const openDiffFile = useCallback(
@@ -550,25 +555,18 @@ export default function DiffPanel({
     },
     [activeCwd, activeRepositoryRoot, launchDiffFileInEditor, routeThreadRef],
   );
-  const openDiffFileExternally = useCallback(
-    (filePath: string) => {
-      openDiffFileInEditor({
-        filePath,
-        activeCwd,
-        repositoryRoot: activeRepositoryRoot,
-        openInEditor: launchDiffFileInEditor,
-      });
-    },
-    [activeCwd, activeRepositoryRoot, launchDiffFileInEditor],
-  );
   const canOpenDiffFileExternally =
     activeCwd != null &&
     activeThread != null &&
+    preferredEditor !== null &&
     remoteOpenResolution.isResolved &&
-    remoteOpenResolution.state.mode !== "remote-unavailable" &&
-    (remoteOpenResolution.state.mode === "remote-links"
-      ? preferredRemoteEditor !== null
-      : (serverConfig?.availableEditors.length ?? 0) > 0);
+    remoteOpenResolution.state.mode !== "remote-unavailable";
+  const openDiffFileMenuLabel =
+    preferredEditor === "file-manager" && revealInFileManager && serverConfig
+      ? serverConfig.shellRevealInFileManagerKind === undefined
+        ? revealInFileExplorerLabelForOs(serverConfig.environment.platform.os)
+        : revealInFileExplorerLabelForKind(serverConfig.shellRevealInFileManagerKind)
+      : openInEditorMenuLabel(preferredEditor);
   const toggleDiffFileCollapsed = useCallback(
     (fileKey: string) => {
       setCollapsedDiffFiles((current) => {
@@ -1002,6 +1000,7 @@ export default function DiffPanel({
                 <div
                   className="min-h-0 min-w-0 flex-1"
                   onContextMenuCapture={(event) => {
+                    if (!canOpenDiffFileExternally) return;
                     const header = event.nativeEvent
                       .composedPath()
                       .find(
@@ -1014,32 +1013,26 @@ export default function DiffPanel({
                     if (!file) return;
                     const api = readLocalApi();
                     if (!api) return;
-                    const preferredEditor =
-                      remoteOpenResolution.state.mode === "remote-links"
-                        ? preferredRemoteEditor
-                        : remoteOpenResolution.state.mode === "local-exec"
-                          ? resolveAndPersistPreferredEditor(serverConfig?.availableEditors ?? [])
-                          : null;
                     event.preventDefault();
                     event.stopPropagation();
                     void api.contextMenu
-                      .show(
-                        [
-                          {
-                            id: "open-in-editor",
-                            label: openInEditorMenuLabel(
-                              preferredEditor,
-                              serverConfig?.shellRevealInFileManager === true
-                                ? serverConfig.environment.platform.os
-                                : undefined,
-                            ),
-                            disabled: !canOpenDiffFileExternally,
-                          },
-                        ],
-                        { x: event.clientX, y: event.clientY },
-                      )
+                      .show([{ id: "open-in-editor", label: openDiffFileMenuLabel }], {
+                        x: event.clientX,
+                        y: event.clientY,
+                      })
                       .then((action) => {
-                        if (action === "open-in-editor") openDiffFileExternally(file.filePath);
+                        if (action !== "open-in-editor") return;
+                        openDiffFileInEditor({
+                          filePath: file.filePath,
+                          activeCwd,
+                          repositoryRoot: activeRepositoryRoot,
+                          openInEditor: launchDiffFileInEditor,
+                        });
+                      })
+                      .catch((error: unknown) => {
+                        console.warn("Diff file context menu failed.", {
+                          ...safeErrorLogAttributes(error),
+                        });
                       });
                   }}
                   onClickCapture={(event) => {

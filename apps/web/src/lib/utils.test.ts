@@ -4,7 +4,6 @@ import { getLocalFileManagerName, isWindowsPlatform } from "./utils";
 describe("getLocalFileManagerName", () => {
   it.each([
     ["MacIntel", "Finder"],
-    ["darwin", "Finder"],
     ["Win32", "File Explorer"],
     ["Linux", "Files"],
   ])("uses the %s file manager name", (platform, expected) => {

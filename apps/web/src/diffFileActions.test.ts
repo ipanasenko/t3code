@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import {
   openDiffFileInEditor,
   openDiffFilePrimaryAction,
+  resolveDiffEditorLaunch,
   resolveDiffPathForWorkspace,
 } from "./diffFileActions";
 import { selectThreadRightPanelState, useRightPanelStore } from "./rightPanelStore";
@@ -138,4 +139,53 @@ describe("openDiffFilePrimaryAction", () => {
       expect(openInEditor).not.toHaveBeenCalled();
     },
   );
+});
+
+describe("resolveDiffEditorLaunch", () => {
+  it("execs the preferred editor when the client shares the environment machine", () => {
+    expect(
+      resolveDiffEditorLaunch({
+        remoteOpen: { mode: "local-exec" },
+        editor: "cursor",
+        targetPath: "/repo/file.ts",
+        revealInFileManager: true,
+      }),
+    ).toEqual({ kind: "local-exec", editor: "cursor", reveal: false });
+  });
+
+  it("reveals instead of opening when the preferred editor is the file manager", () => {
+    expect(
+      resolveDiffEditorLaunch({
+        remoteOpen: { mode: "local-exec" },
+        editor: "file-manager",
+        targetPath: "/repo/file.ts",
+        revealInFileManager: true,
+      }),
+    ).toEqual({ kind: "local-exec", editor: "file-manager", reveal: true });
+  });
+
+  it("hands off-machine clients an SSH deep link", () => {
+    const launch = resolveDiffEditorLaunch({
+      remoteOpen: { mode: "remote-links", host: { kind: "ssh-alias", host: "devbox" } },
+      editor: "vscode",
+      targetPath: "/repo/file.ts",
+      revealInFileManager: false,
+    });
+    expect(launch.kind).toBe("remote-url");
+    if (launch.kind === "remote-url") {
+      expect(launch.url).toContain("devbox");
+      expect(launch.url).toContain("/repo/file.ts");
+    }
+  });
+
+  it("never falls back to a server-side exec without an SSH route", () => {
+    expect(
+      resolveDiffEditorLaunch({
+        remoteOpen: { mode: "remote-unavailable" },
+        editor: "vscode",
+        targetPath: "/repo/file.ts",
+        revealInFileManager: false,
+      }),
+    ).toEqual({ kind: "unavailable" });
+  });
 });
