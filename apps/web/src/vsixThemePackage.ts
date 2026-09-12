@@ -85,7 +85,7 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export function shortHash(value: string): string {
+function shortHash(value: string): string {
   return [...sha256(new TextEncoder().encode(value))]
     .slice(0, 6)
     .map((byte) => byte.toString(16).padStart(2, "0"))
