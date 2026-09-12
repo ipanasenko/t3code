@@ -1,4 +1,5 @@
 import { sha256 } from "@noble/hashes/sha2";
+import { THEME_FILE_MAX_BYTES, THEME_PACKAGE_MAX_BYTES } from "@t3tools/contracts";
 import JSZip from "jszip";
 import { parse, type ParseError } from "jsonc-parser";
 
@@ -11,8 +12,8 @@ import {
   resolveThemeLabelCollisions,
 } from "./vscodeThemeImport";
 
-export const MAX_VSIX_BYTES = 20 * 1024 * 1024;
-const MAX_THEME_BYTES = 256 * 1024;
+export const MAX_VSIX_BYTES = THEME_PACKAGE_MAX_BYTES;
+const MAX_THEME_BYTES = THEME_FILE_MAX_BYTES;
 const MAX_ZIP_ENTRIES = 5_000;
 const MAX_UNCOMPRESSED_BYTES = 100 * 1024 * 1024;
 const MAX_COMPRESSION_RATIO = 200;
@@ -462,7 +463,9 @@ export async function themesFromPackage(
   return themes.map((theme) => ({ ...theme, collection: identity.collection }));
 }
 
-function collectionId(prefix: string, key: string): string {
+/** Collection ids are `${source}:${key}`; a key the id grammar cannot carry is
+ *  hashed instead so the id stays stable and well-formed. */
+export function themeCollectionId(prefix: string, key: string): string {
   const normalized = `${prefix}:${key}`;
   return /^[a-z0-9][a-z0-9.:-]{0,127}$/.test(normalized)
     ? normalized
@@ -491,7 +494,7 @@ function localPackageIdentity(
     idPrefix: "vsix-theme",
     key,
     name: label,
-    collection: { id: collectionId("local-vsix", key), label },
+    collection: { id: themeCollectionId("local-vsix", key), label },
   };
 }
 

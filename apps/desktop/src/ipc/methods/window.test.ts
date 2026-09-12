@@ -4,6 +4,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import { THEME_PACKAGE_MAX_BYTES } from "@t3tools/contracts";
 import { vi } from "vite-plus/test";
 
 import type * as Electron from "electron";
@@ -280,7 +281,7 @@ describe("pickThemeFiles", () => {
       assert.deepEqual(result, [
         {
           name: "aurora.vsix",
-          size: 20 * 1024 * 1024 + 1,
+          size: THEME_PACKAGE_MAX_BYTES + 1,
           text: "",
         },
       ]);

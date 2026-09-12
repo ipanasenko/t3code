@@ -8,7 +8,7 @@ import {
   openThemePackage,
   parseJsoncObject,
   readPackagedManifest,
-  shortHash,
+  themeCollectionId,
   themeContributions,
   themesFromPackage,
   type ThemePackageIdentity,
@@ -53,13 +53,6 @@ export type OpenVsxThemeSearchOptions = {
   signal?: AbortSignal;
   sortBy?: OpenVsxThemeSort;
 };
-
-function openVsxCollectionId(extensionId: string): string {
-  const normalized = `open-vsx:${extensionId.toLowerCase()}`;
-  return /^[a-z0-9][a-z0-9.:-]{0,127}$/.test(normalized)
-    ? normalized
-    : `open-vsx:${shortHash(extensionId)}`;
-}
 
 function trustedOpenVsxUrl(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -116,7 +109,7 @@ function extensionFromDetail(value: unknown): OpenVsxThemeExtension | null {
   const id = `${namespace}.${extensionName}`;
   return {
     id,
-    collectionId: openVsxCollectionId(id),
+    collectionId: themeCollectionId("open-vsx", id.toLowerCase()),
     name: displayName,
     publisher: namespace,
     description: typeof value.description === "string" ? value.description : "",

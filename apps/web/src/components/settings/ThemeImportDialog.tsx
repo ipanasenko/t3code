@@ -1,3 +1,4 @@
+import { THEME_FILE_MAX_BYTES } from "@t3tools/contracts";
 import { DownloadIcon, PlusIcon } from "lucide-react";
 import type { ChangeEvent, DragEvent, ReactNode, UIEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -32,7 +33,7 @@ import { ThemeSearchSection } from "./ThemeSearchSection";
  * would otherwise be pulled into memory, highlighted, and rendered, which
  * locks the UI for as long as that takes.
  */
-export const MAX_THEME_FILE_BYTES = 256 * 1024;
+export const MAX_THEME_FILE_BYTES = THEME_FILE_MAX_BYTES;
 
 /** Highlighting rebuilds the whole markup on every keystroke, so oversized
  *  pastes fall back to plain text instead of freezing the editor. */

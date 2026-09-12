@@ -6,6 +6,8 @@ import {
   EDITORS,
   EditorId,
   PickedThemeFileSchema,
+  THEME_FILE_MAX_BYTES,
+  THEME_PACKAGE_MAX_BYTES,
   PickFolderOptionsSchema,
   PRIMARY_LOCAL_ENVIRONMENT_ID,
   REMOTE_CAPABLE_EDITOR_IDS,
@@ -334,14 +336,6 @@ export const probeRemoteEditors = DesktopIpc.makeIpcMethod({
   }),
 });
 
-/** Theme files are a few KB; anything larger returns empty text and lets the
- *  renderer reject it by size without the contents ever crossing the bridge. */
-const PICKED_THEME_FILE_MAX_BYTES = 256 * 1024;
-
-/** Extension packages carry icons and screenshots, so they get the same cap
- *  the renderer applies to a downloaded VSIX. */
-const PICKED_THEME_PACKAGE_MAX_BYTES = 20 * 1024 * 1024;
-
 /** Reads at most `limit` bytes. The cap is enforced while reading, not by a
  *  prior stat, so a file that grows between the size check and the read can
  *  never pull more than the cap into memory. Returns None past the limit. */
@@ -408,23 +402,24 @@ export const pickThemeFiles = DesktopIpc.makeIpcMethod({
       return Effect.gen(function* () {
         const info = yield* fileSystem.stat(filePath);
         const size = Number(info.size);
-        const limit = isPackage ? PICKED_THEME_PACKAGE_MAX_BYTES : PICKED_THEME_FILE_MAX_BYTES;
+        const limit = isPackage ? THEME_PACKAGE_MAX_BYTES : THEME_FILE_MAX_BYTES;
+        // Oversized files never get read; the renderer rejects them by size.
         if (size > limit) {
           return { name, size, text: "" } satisfies PickedThemeFile;
+        }
+        const bytes = yield* readCappedFile(fileSystem, filePath, limit);
+        if (Option.isNone(bytes)) {
+          // Grew past the cap after stat; report a size the renderer
+          // rejects as oversized.
+          return { name, size: limit + 1, text: "" } satisfies PickedThemeFile;
         }
         // A package is binary, so it crosses the bridge base64-encoded; the
         // renderer unzips it and never looks at `text`.
         if (isPackage) {
-          const bytes = yield* readCappedFile(fileSystem, filePath, limit);
-          if (Option.isNone(bytes)) {
-            // Grew past the cap after stat; report a size the renderer
-            // rejects as oversized.
-            return { name, size: limit + 1, text: "" } satisfies PickedThemeFile;
-          }
           const contentBase64 = Buffer.from(bytes.value).toString("base64");
           return { name, size, text: "", contentBase64 } satisfies PickedThemeFile;
         }
-        const text = yield* fileSystem.readFileString(filePath);
+        const text = new TextDecoder().decode(bytes.value);
         return { name, size, text } satisfies PickedThemeFile;
       }).pipe(
         // An unreadable file degrades to an entry the renderer reports.

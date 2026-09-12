@@ -143,3 +143,188 @@ describe("local .vsix theme import", () => {
     ).rejects.toThrow("too large to import safely");
   });
 });
+
+/** Builds a ZIP by hand so central-directory fields can hold values JSZip
+ *  would never write, such as a fake uncompressed size or a ZIP64 marker. */
+function rawZip(
+  entries: ReadonlyArray<{
+    name: string;
+    data?: Uint8Array;
+    uncompressedSize?: number;
+    compressedSize?: number;
+  }>,
+  comment = "",
+): Uint8Array {
+  const encoder = new TextEncoder();
+  const localParts: Uint8Array[] = [];
+  const centralParts: Uint8Array[] = [];
+  let offset = 0;
+  for (const entry of entries) {
+    const name = encoder.encode(entry.name);
+    const data = entry.data ?? new Uint8Array(0);
+    const local = new Uint8Array(30 + name.byteLength + data.byteLength);
+    const localView = new DataView(local.buffer);
+    localView.setUint32(0, 0x04034b50, true);
+    localView.setUint32(18, data.byteLength, true);
+    localView.setUint32(22, data.byteLength, true);
+    localView.setUint16(26, name.byteLength, true);
+    local.set(name, 30);
+    local.set(data, 30 + name.byteLength);
+    localParts.push(local);
+
+    const central = new Uint8Array(46 + name.byteLength);
+    const centralView = new DataView(central.buffer);
+    centralView.setUint32(0, 0x02014b50, true);
+    centralView.setUint32(20, entry.compressedSize ?? data.byteLength, true);
+    centralView.setUint32(24, entry.uncompressedSize ?? data.byteLength, true);
+    centralView.setUint16(28, name.byteLength, true);
+    centralView.setUint32(42, offset, true);
+    central.set(name, 46);
+    centralParts.push(central);
+    offset += local.byteLength;
+  }
+  const directorySize = centralParts.reduce((sum, part) => sum + part.byteLength, 0);
+  const commentBytes = encoder.encode(comment);
+  const end = new Uint8Array(22 + commentBytes.byteLength);
+  const endView = new DataView(end.buffer);
+  endView.setUint32(0, 0x06054b50, true);
+  endView.setUint16(8, entries.length, true);
+  endView.setUint16(10, entries.length, true);
+  endView.setUint32(12, directorySize, true);
+  endView.setUint32(16, offset, true);
+  endView.setUint16(20, commentBytes.byteLength, true);
+  end.set(commentBytes, 22);
+
+  const parts = [...localParts, ...centralParts, end];
+  const bytes = new Uint8Array(parts.reduce((sum, part) => sum + part.byteLength, 0));
+  let position = 0;
+  for (const part of parts) {
+    bytes.set(part, position);
+    position += part.byteLength;
+  }
+  return bytes;
+}
+
+describe("extension package safety limits", () => {
+  const manifestEntry = {
+    name: "extension/package.json",
+    data: new TextEncoder().encode(JSON.stringify(draculaProManifest())),
+  };
+
+  it("rejects an archive that claims to expand past the uncompressed cap", async () => {
+    const bytes = rawZip([
+      manifestEntry,
+      { name: "extension/huge.bin", uncompressedSize: 101 * 1024 * 1024, compressedSize: 1 },
+    ]);
+
+    await expect(importVsixThemeFile({ name: "bomb.vsix", bytes })).rejects.toThrow(
+      "expands beyond the safe import limit",
+    );
+  });
+
+  it("rejects an entry with an unsafe compression ratio", async () => {
+    const bytes = rawZip([
+      manifestEntry,
+      { name: "extension/dense.bin", uncompressedSize: 1024 * 1024, compressedSize: 16 },
+    ]);
+
+    await expect(importVsixThemeFile({ name: "bomb.vsix", bytes })).rejects.toThrow(
+      "unsafe compression ratio",
+    );
+  });
+
+  it("rejects ZIP64 size markers", async () => {
+    const bytes = rawZip([
+      manifestEntry,
+      { name: "extension/big.bin", uncompressedSize: 0xffffffff },
+    ]);
+
+    await expect(importVsixThemeFile({ name: "zip64.vsix", bytes })).rejects.toThrow(
+      "unsupported ZIP64 metadata",
+    );
+  });
+
+  it("rejects an archive with too many entries", async () => {
+    const entries = Array.from({ length: 5_001 }, (_, index) => ({
+      name: `extension/node_modules/file-${index}.js`,
+    }));
+    const bytes = rawZip([manifestEntry, ...entries]);
+
+    await expect(importVsixThemeFile({ name: "many.vsix", bytes })).rejects.toThrow(
+      "too many files",
+    );
+  });
+
+  it("rejects an entry whose path escapes the package", async () => {
+    const bytes = rawZip([manifestEntry, { name: "../../etc/passwd" }]);
+
+    await expect(importVsixThemeFile({ name: "traversal.vsix", bytes })).rejects.toThrow(
+      "could not be opened",
+    );
+  });
+
+  it("rejects a theme contribution whose path escapes the package", async () => {
+    const bytes = await vsixBytes(
+      draculaProManifest({
+        contributes: { themes: [{ label: "Escape", path: "../../outside.json" }] },
+      }),
+    );
+
+    await expect(importVsixThemeFile({ name: "traversal.vsix", bytes })).rejects.toThrow(
+      "could not be imported safely",
+    );
+  });
+
+  it("reads an archive whose comment contains end-of-directory bytes", async () => {
+    const encoder = new TextEncoder();
+    // JSZip scans backwards for the EOCD signature and would stop on this
+    // look-alike inside the comment. Its comment-length field does not match
+    // the bytes that follow, so the directory inspection skips it.
+    const decoyRecord = "PK\u0005\u0006" + "\u0000".repeat(16) + "\u0007\u0000";
+    const bytes = rawZip(
+      [
+        manifestEntry,
+        { name: "extension/theme/dracula-pro.json", data: encoder.encode(DARK_THEME) },
+        { name: "extension/theme/dracula-pro-alucard.json", data: encoder.encode(LIGHT_THEME) },
+      ],
+      decoyRecord,
+    );
+
+    const themes = await importVsixThemeFile({ name: "commented.vsix", bytes });
+
+    expect(themes).toHaveLength(2);
+  });
+
+  it("rejects a theme file past the per-file cap", async () => {
+    const zip = new JSZip();
+    zip.file("extension/package.json", JSON.stringify(draculaProManifest()));
+    zip.file(
+      "extension/theme/dracula-pro.json",
+      JSON.stringify({ colors: { "editor.background": "#" + "1".repeat(300 * 1024) } }),
+    );
+    zip.file("extension/theme/dracula-pro-alucard.json", LIGHT_THEME);
+    const bytes = new Uint8Array(await zip.generateAsync({ type: "uint8array" }));
+
+    await expect(importVsixThemeFile({ name: "large-theme.vsix", bytes })).rejects.toThrow(
+      "could not be imported safely",
+    );
+  });
+
+  it("rejects an include cycle", async () => {
+    const zip = new JSZip();
+    zip.file("extension/package.json", JSON.stringify(draculaProManifest()));
+    zip.file(
+      "extension/theme/dracula-pro.json",
+      JSON.stringify({ include: "./dracula-pro-alucard.json" }),
+    );
+    zip.file(
+      "extension/theme/dracula-pro-alucard.json",
+      JSON.stringify({ include: "./dracula-pro.json" }),
+    );
+    const bytes = new Uint8Array(await zip.generateAsync({ type: "uint8array" }));
+
+    await expect(importVsixThemeFile({ name: "cycle.vsix", bytes })).rejects.toThrow(
+      "could not be imported safely",
+    );
+  });
+});
