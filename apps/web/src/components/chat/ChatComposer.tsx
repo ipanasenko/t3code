@@ -2430,8 +2430,9 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     }
     promptRef.current = prompt;
     if (restoreDraftAfterPendingRef.current) {
-      // The cursor and trigger still describe the custom-answer buffer, so
-      // rebuild both from the restored draft instead of clamping them.
+      // The cursor and trigger still describe the custom-answer buffer, or a
+      // draft that changed while hidden behind an approval, so rebuild both
+      // from the restored draft instead of clamping them.
       restoreDraftAfterPendingRef.current = false;
       setComposerCursor(collapseExpandedComposerCursor(prompt, prompt.length));
       setComposerTrigger(detectComposerTrigger(prompt, prompt.length));
@@ -4314,12 +4315,6 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     setIsStashMenuOpen(false);
   }, [prompt]);
 
-  // The cursor is only needed as a fallback when the editor has no snapshot,
-  // so read it through a ref instead of re-binding the shortcut listener on
-  // every caret move.
-  const composerCursorRef = useRef(composerCursor);
-  composerCursorRef.current = composerCursor;
-
   const applyReasoningCycle = useCallback(
     (direction: "increase" | "decrease") => {
       const editorShowsDraftPrompt = !isComposerApprovalState && activePendingProgress === null;
@@ -4357,11 +4352,15 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
         setPrompt(transition.prompt);
         // When a pending question or approval hides the editor, the draft
         // is updated in the store only. The cursor and trigger belong to
-        // the visible editor state and are rebuilt when the draft returns.
-        if (editorShowsDraftPrompt) {
+        // the visible editor state and are rebuilt from the draft by the
+        // sync effect once it is shown again.
+        if (!editorShowsDraftPrompt) {
+          restoreDraftAfterPendingRef.current = true;
+        } else {
+          // The editor is mounted whenever it shows the draft; the fallback
+          // only guards the ref during teardown.
           const currentExpandedCursor =
-            composerEditorRef.current?.readSnapshot().expandedCursor ??
-            expandCollapsedComposerCursor(currentPrompt, composerCursorRef.current);
+            composerEditorRef.current?.readSnapshot().expandedCursor ?? currentPrompt.length;
           const nextExpandedCursor = mapComposerCursorAcrossLeadingPromptChange(
             currentPrompt,
             transition.prompt,
