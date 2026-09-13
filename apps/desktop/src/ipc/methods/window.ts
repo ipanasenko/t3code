@@ -348,6 +348,32 @@ export const probeRemoteEditors = DesktopIpc.makeIpcMethod({
   }),
 });
 
+export const pasteAsText = DesktopIpc.makeIpcMethod({
+  channel: IpcChannels.PASTE_AS_TEXT_CHANNEL,
+  payload: Schema.Undefined,
+  result: Schema.Void,
+  handler: Effect.fn("desktop.ipc.window.pasteAsText")(function* (_input, event) {
+    const electronWindow = yield* ElectronWindow.ElectronWindow;
+    const window = yield* electronWindow.main;
+    if (
+      event === undefined ||
+      Option.isNone(window) ||
+      window.value.isDestroyed() ||
+      window.value.webContents.id !== event.sender.id
+    ) {
+      return;
+    }
+    const focused = Electron.webContents.getFocusedWebContents();
+    if (
+      focused &&
+      !focused.isDestroyed() &&
+      Electron.BrowserWindow.fromWebContents(focused) === window.value
+    ) {
+      focused.paste();
+    }
+  }),
+});
+
 /** Reads at most `limit` bytes. The cap is enforced while reading, not by a
  *  prior stat, so a file that grows between the size check and the read can
  *  never pull more than the cap into memory. Returns None past the limit. */
