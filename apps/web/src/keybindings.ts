@@ -19,7 +19,6 @@ export interface ShortcutEventLike {
   ctrlKey: boolean;
   shiftKey: boolean;
   altKey: boolean;
-  getModifierState?(keyArg: string): boolean;
 }
 
 export interface ShortcutModifierStateLike {
@@ -136,12 +135,6 @@ function matchesShortcut(
   shortcut: KeybindingShortcut,
   platform = navigator.platform,
 ): boolean {
-  if (
-    !isMacPlatform(platform) &&
-    event.getModifierState?.("AltGraph") &&
-    !/^[a-z0-9]$/i.test(event.key)
-  )
-    return false;
   if (!matchesShortcutModifiers(event, shortcut, platform)) return false;
   return resolveEventKeys(event, platform).has(shortcut.key);
 }
