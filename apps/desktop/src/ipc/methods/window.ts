@@ -385,12 +385,12 @@ export const pasteAsText = DesktopIpc.makeIpcMethod({
 /** Reads at most `limit` bytes. The cap is enforced while reading, not by a
  *  prior stat, so a file that grows between the size check and the read can
  *  never pull more than the cap into memory. Returns None past the limit. */
-const readCappedFile = (
-  fileSystem: FileSystem.FileSystem,
+const readCappedFile = Effect.fn("desktop.ipc.window.readCappedFile")(function* (
   filePath: string,
   limit: number,
-): Effect.Effect<Option.Option<Uint8Array>, PlatformError> =>
-  Effect.scoped(
+): Effect.fn.Return<Option.Option<Uint8Array>, PlatformError, FileSystem.FileSystem> {
+  const fileSystem = yield* FileSystem.FileSystem;
+  return yield* Effect.scoped(
     Effect.gen(function* () {
       const file = yield* fileSystem.open(filePath);
       const chunks: Uint8Array[] = [];
@@ -412,6 +412,7 @@ const readCappedFile = (
       return Option.none<Uint8Array>();
     }),
   );
+});
 
 export const pickThemeFiles = DesktopIpc.makeIpcMethod({
   channel: IpcChannels.PICK_THEME_FILES_CHANNEL,
@@ -453,7 +454,7 @@ export const pickThemeFiles = DesktopIpc.makeIpcMethod({
         if (size > limit) {
           return { name, size, text: "" } satisfies PickedThemeFile;
         }
-        const bytes = yield* readCappedFile(fileSystem, filePath, limit);
+        const bytes = yield* readCappedFile(filePath, limit);
         if (Option.isNone(bytes)) {
           // Grew past the cap after stat; report a size the renderer
           // rejects as oversized.
