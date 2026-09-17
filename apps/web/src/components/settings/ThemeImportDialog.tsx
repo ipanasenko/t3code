@@ -345,6 +345,8 @@ export function ThemeImportDialog({
       // would lock the UI.
       const oversized = describeOversizedThemePackage(file.size);
       if (oversized) {
+        importRequestRef.current += 1;
+        setIsReading(false);
         setError(oversized);
         return;
       }
@@ -394,6 +396,8 @@ export function ThemeImportDialog({
         // A package expands into a whole collection with its own update
         // prompt, so it imports on its own rather than inside a batch.
         if (files.length > 1) {
+          importRequestRef.current += 1;
+          setIsReading(false);
           setError("Import one .vsix extension package at a time.");
           return;
         }
