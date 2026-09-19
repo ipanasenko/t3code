@@ -3,6 +3,7 @@ import { assert, describe, it } from "@effect/vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { HostProcessEnvironment, HostProcessPlatform } from "@t3tools/shared/hostProcess";
 import * as FileSystem from "effect/FileSystem";
+import * as ByteSize from "effect/ByteSize";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -49,7 +50,7 @@ function fileInfo(size: number): FileSystem.File.Info {
     uid: Option.none(),
     gid: Option.none(),
     rdev: Option.none(),
-    size: FileSystem.Size(size),
+    size: ByteSize.bytes(size),
     blksize: Option.none(),
     blocks: Option.none(),
   };
@@ -59,12 +60,12 @@ function testFile(readAlloc: FileSystem.File["readAlloc"]): FileSystem.File {
   return {
     [FileSystem.FileTypeId]: FileSystem.FileTypeId,
     stat: Effect.succeed(fileInfo(0)),
-    seek: () => Effect.succeed(FileSystem.Size(0)),
+    seek: () => Effect.succeed(0n),
     sync: Effect.void,
-    read: () => Effect.succeed(FileSystem.Size(0)),
+    read: () => Effect.succeed(0),
     readAlloc,
     truncate: () => Effect.void,
-    write: () => Effect.succeed(FileSystem.Size(0)),
+    write: () => Effect.succeed(0),
     writeAll: () => Effect.void,
   };
 }
