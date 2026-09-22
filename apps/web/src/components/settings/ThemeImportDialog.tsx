@@ -191,7 +191,7 @@ function ThemeConflictNotice({ title, children }: { title: ReactNode; children: 
   return (
     <Alert>
       <AlertTitle>{title}</AlertTitle>
-      <AlertDescription className="mt-0.5 text-xs">{children}</AlertDescription>
+      <AlertDescription>{children}</AlertDescription>
     </Alert>
   );
 }
