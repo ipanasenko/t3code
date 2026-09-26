@@ -433,12 +433,15 @@ export function isOpenFavoriteEditorShortcut(
  * modifiers). Tiptap binds the same chord, so app shortcuts captured ahead
  * of the editor must yield when the rich-text composer is focused.
  */
-export function isRichTextBoldShortcut(event: ShortcutEventLike): boolean {
+export function isRichTextBoldShortcut(
+  event: ShortcutEventLike,
+  platform = navigator.platform,
+): boolean {
   if (event.type !== undefined && event.type !== "keydown") {
     return false;
   }
   return (
-    resolveEventKeys(event).has("b") &&
+    resolveEventKeys(event, platform).has("b") &&
     (event.metaKey || event.ctrlKey) &&
     !event.altKey &&
     !event.shiftKey
