@@ -23,7 +23,7 @@ export interface CollectComposerInlineTokensOptions {
  * numeric expressions like "$20", "$20k", "$100M", and "$1e6" must stay prose:
  * the composer chips any matched `$name` token, known or not. Tokens beginning
  * with digits must not match numbers with currency/exponent suffixes, and must
- * contain at least one letter.
+ * contain at least one letter. Any currency symbol is accepted as the sigil.
  */
 const SKILL_TOKEN_REGEX =
   /(^|\s)\p{Sc}(?:"((?:\\[^\r\n]|[^"\\\r\n])+)"|(?![0-9][0-9_]*(?:[kKmMbBtT]|[eE][0-9]+)?(?:\s|$))(?=[a-zA-Z0-9:_-]*[a-zA-Z])([a-zA-Z0-9][a-zA-Z0-9:_-]*))(?=\s|$)/gu;
