@@ -451,6 +451,12 @@ describe("Cursor skills", () => {
     ));
 
   it("rewrites only discovered skill mentions into Cursor slash invocations", () => {
+    const quoted = 'use $"Poteto Mode" then $"Unknown Skill"';
+    expect(hasCursorSkillMention(quoted)).toBe(true);
+    expect(hasCursorSkillMention(quoted)).toBe(true);
+    expect(rewriteCursorSkillMentions(quoted, new Set(["Poteto Mode", "Poteto"]))).toBe(
+      'use /Poteto Mode then $"Unknown Skill"',
+    );
     expect(hasCursorSkillMention("use $Review_Pr:V2 here")).toBe(true);
     expect(hasCursorSkillMention("please $review this")).toBe(true);
     expect(

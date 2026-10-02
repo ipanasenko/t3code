@@ -20,6 +20,7 @@ import {
 } from "@t3tools/contracts";
 import { resolveSpawnCommand } from "@t3tools/shared/shell";
 import { normalizeModelSlug } from "@t3tools/shared/model";
+import { replaceComposerSkillTokens } from "@t3tools/shared/composerInlineTokens";
 import * as Crypto from "effect/Crypto";
 import * as DateTime from "effect/DateTime";
 import * as Deferred from "effect/Deferred";
@@ -614,10 +615,6 @@ function buildCodexTurnInstructions(input: {
   };
 }
 
-// Match the skill grammar used by Claude/Cursor, leaving currency amounts as prose.
-const SKILL_MENTION_PATTERN =
-  /(^|\s)\p{Sc}(?![0-9][0-9_]*(?:[kKmMbBtT]|[eE][0-9]+)?(?:\s|$))(?=[a-zA-Z0-9:_-]*[a-zA-Z])([a-zA-Z0-9][a-zA-Z0-9:_-]*)(?=\s|$)/gu;
-
 export function buildTurnStartParams(input: {
   readonly threadId: string;
   readonly runtimeMode: RuntimeMode;
@@ -642,7 +639,7 @@ export function buildTurnStartParams(input: {
   if (input.prompt) {
     turnInput.push({
       type: "text",
-      text: input.prompt.replace(SKILL_MENTION_PATTERN, "$1$$$2"),
+      text: replaceComposerSkillTokens(input.prompt, (token) => `$${token.value}`),
     });
   }
   for (const attachment of input.attachments ?? []) {

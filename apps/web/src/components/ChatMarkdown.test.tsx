@@ -505,6 +505,40 @@ describe("hasMarkdownFilePrimaryAction", () => {
 });
 
 describe("ChatMarkdown skill chips", () => {
+  it("renders the full multiword skill and retains its copyable source", async () => {
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    let renderer: ReactTestRenderer | undefined;
+    try {
+      await act(async () => {
+        renderer = create(
+          <ChatMarkdown
+            cwd="/tmp/project"
+            text={'Use $"Poteto Mode" next'}
+            skills={[
+              { name: "Poteto Mode", displayName: "Poteto workflow" },
+              { name: "Poteto", displayName: "Wrong skill" },
+            ]}
+          />,
+        );
+      });
+      const chips = renderer!.root.findAll(
+        (node) => node.type === "span" && node.props["data-markdown-copy"] !== undefined,
+      );
+      expect(chips.map((node) => node.props["data-markdown-copy"])).toEqual(['$"Poteto Mode"']);
+      expect(
+        renderer!.root
+          .findAllByType("span")
+          .some((node) => node.children.includes("Poteto workflow")),
+      ).toBe(true);
+      expect(
+        renderer!.root.findAllByType("span").some((node) => node.children.includes("Wrong skill")),
+      ).toBe(false);
+    } finally {
+      await act(async () => renderer?.unmount());
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("updates digit-leading skill labels when discovered skills change", async () => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     let renderer: ReactTestRenderer | undefined;

@@ -123,6 +123,18 @@ function roundTripPlain(value: string) {
 }
 
 describe("composer rich text document model", () => {
+  it("round trips a spaced skill as one atom and keeps cursor offsets after it", () => {
+    const text = 'Use $"Poteto Mode" next';
+    const json = buildDocJson(text, (name) => ({ label: name, description: null }));
+    const doc = ProseMirrorNode.fromJSON(schema, json);
+    doc.check();
+    expect(doc.firstChild?.childCount).toBe(3);
+    expect(doc.firstChild?.child(1).attrs.skillName).toBe("Poteto Mode");
+    expect(serializeEditorDoc(doc).value).toBe(text);
+    expect(roundTripPlain(text).value).toBe(text);
+    expect(flatToMarkdown(serializeEditorDoc(doc), 5)).toBe(18);
+  });
+
   it.each(["€", "£", "¥", "₹", "₩", "₿", "𑿝"])(
     "canonicalizes %s skill aliases while preserving amounts",
     (prefix) => {

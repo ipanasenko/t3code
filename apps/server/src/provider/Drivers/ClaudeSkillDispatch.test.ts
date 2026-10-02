@@ -5,6 +5,16 @@ import { planClaudeSkillDispatch } from "./ClaudeSkillDispatch.ts";
 const SKILLS = new Set(["2spec", "implement", "review", "re-release-version"]);
 
 describe("planClaudeSkillDispatch", () => {
+  it("dispatches a quoted multiword skill by its full catalog name", () => {
+    expect(
+      planClaudeSkillDispatch('use $"Poteto Mode" for this', new Set(["Poteto Mode", "Poteto"])),
+    ).toEqual({
+      leadingText: "use",
+      commandText: "/Poteto Mode for this",
+      skillName: "Poteto Mode",
+    });
+  });
+
   it("leaves a prompt without a known skill untouched", () => {
     expect(planClaudeSkillDispatch("fix the build", SKILLS)).toBeUndefined();
     // Not a discovered skill, so it stays prose rather than becoming a command.

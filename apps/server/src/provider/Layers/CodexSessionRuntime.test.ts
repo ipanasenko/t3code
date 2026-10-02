@@ -160,6 +160,19 @@ function makeThreadOpenResponse(
 }
 
 describe("buildTurnStartParams", () => {
+  it.effect("sends the complete quoted skill name in Codex's native text form", () =>
+    Effect.gen(function* () {
+      const params = yield* buildTurnStartParams({
+        threadId: "provider-thread-1",
+        runtimeMode: "full-access",
+        prompt: 'Use $"Poteto Mode" then $2spec with $20k',
+      });
+      NodeAssert.deepEqual(params.input, [
+        { type: "text", text: "Use $Poteto Mode then $2spec with $20k" },
+      ]);
+    }),
+  );
+
   it.effect("sends currency skill aliases in Codex's canonical dollar form", () =>
     Effect.gen(function* () {
       for (const symbol of ["€", "£", "¥", "₹", "₩", "₿", "𑿝"]) {

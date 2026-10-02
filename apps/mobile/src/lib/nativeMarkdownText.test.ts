@@ -356,6 +356,36 @@ describe("nativeMarkdownDocumentRuns", () => {
     ]);
   });
 
+  it("decorates and copies the full multiword skill name", () => {
+    const node: MarkdownNode = {
+      type: "document",
+      children: [
+        { type: "paragraph", children: [{ type: "text", content: 'Use $"Poteto Mode" next' }] },
+      ],
+    };
+    expect(
+      nativeMarkdownDocumentRuns(node, [{ name: "Poteto Mode", displayName: "Poteto workflow" }]),
+    ).toEqual([
+      { text: "Use ", role: "body" },
+      {
+        text: '$"Poteto Mode"',
+        role: "body",
+        skillName: "Poteto Mode",
+        skillLabel: "Poteto workflow",
+      },
+      { text: " next", role: "body" },
+    ]);
+    expect(
+      nativeMarkdownContextCopyRanges([
+        {
+          run: { text: "Poteto workflow", skillName: "Poteto Mode" },
+          text: "",
+          inlineImageLength: 1,
+        },
+      ]),
+    ).toEqual([{ start: 0, end: 1, text: '$"Poteto Mode"' }]);
+  });
+
   it("decorates known skill references inside blockquotes", () => {
     const node: MarkdownNode = {
       type: "blockquote",

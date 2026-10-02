@@ -26,7 +26,7 @@ export interface CollectComposerInlineTokensOptions {
  * contain at least one letter.
  */
 const SKILL_TOKEN_REGEX =
-  /(^|\s)\p{Sc}(?![0-9][0-9_]*(?:[kKmMbBtT]|[eE][0-9]+)?(?:\s|$))(?=[a-zA-Z0-9:_-]*[a-zA-Z])([a-zA-Z0-9][a-zA-Z0-9:_-]*)(?=\s)/gu;
+  /(^|\s)\p{Sc}(?:"((?:\\[^\r\n]|[^"\\\r\n])+)"|(?![0-9][0-9_]*(?:[kKmMbBtT]|[eE][0-9]+)?(?:\s|$))(?=[a-zA-Z0-9:_-]*[a-zA-Z])([a-zA-Z0-9][a-zA-Z0-9:_-]*))(?=\s|$)/gu;
 const MENTION_TOKEN_REGEX = /(^|\s)@(?:"((?:\\.|[^"\\])*)"|([^\s@"]+))(?=\s)/g;
 /**
  * The label body is bounded rather than `*`. Unbounded, every whitespace in
@@ -48,6 +48,47 @@ const WINDOWS_DRIVE_PATH_REGEX = /^[A-Za-z]:[\\/]/;
 // Autocomplete emits canonical file links, so ambiguous bare @scope/package text stays a package.
 const SCOPED_PACKAGE_REFERENCE_REGEX =
   /^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*(?:\/[^\s@"]+)*$/;
+
+/** Complete skill references, including a final token in a sent message. */
+export function collectComposerSkillTokens(
+  text: string,
+): Extract<ComposerInlineToken, { type: "skill" }>[] {
+  return Array.from(text.matchAll(SKILL_TOKEN_REGEX), (match) => {
+    const start = (match.index ?? 0) + (match[1]?.length ?? 0);
+    const end = (match.index ?? 0) + match[0].length;
+    return {
+      type: "skill",
+      value: match[2] !== undefined ? match[2].replace(/\\(.)/g, "$1") : (match[3] ?? ""),
+      source: text.slice(start, end),
+      start,
+      end,
+    };
+  });
+}
+
+/** Preserve the catalog name as one token when it contains spaces or punctuation. */
+export function serializeComposerSkillToken(name: string): string {
+  const bare = `$${name}`;
+  const token = collectComposerSkillTokens(bare)[0];
+  return token?.value === name && token.source === bare
+    ? bare
+    : `$"${name.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
+}
+
+/** Translate complete skill references without changing their surrounding text. */
+export function replaceComposerSkillTokens(
+  text: string,
+  replace: (token: Extract<ComposerInlineToken, { type: "skill" }>) => string,
+): string {
+  const parts: string[] = [];
+  let cursor = 0;
+  for (const token of collectComposerSkillTokens(text)) {
+    parts.push(text.slice(cursor, token.start), replace(token));
+    cursor = token.end;
+  }
+  parts.push(text.slice(cursor));
+  return parts.join("");
+}
 
 function collectMentionTokens(text: string): ComposerInlineToken[] {
   const matches: ComposerInlineToken[] = [];
@@ -108,23 +149,7 @@ export function collectComposerInlineTokens(
 ): ReadonlyArray<ComposerInlineToken> {
   const matches = collectMentionTokens(text);
 
-  for (const match of text.matchAll(SKILL_TOKEN_REGEX)) {
-    const fullMatch = match[0];
-    const prefix = match[1] ?? "";
-    const value = match[2] ?? "";
-    if (!value) {
-      continue;
-    }
-    const start = (match.index ?? 0) + prefix.length;
-    const end = start + fullMatch.length - prefix.length;
-    matches.push({
-      type: "skill",
-      value,
-      source: text.slice(start, end),
-      start,
-      end,
-    });
-  }
+  matches.push(...collectComposerSkillTokens(text).filter((token) => token.end < text.length));
 
   for (const token of options.preserveTrailingFrom ?? []) {
     if (
