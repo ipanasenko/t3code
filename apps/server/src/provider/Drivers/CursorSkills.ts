@@ -286,6 +286,7 @@ export function rewriteCursorSkillMentions(
   skillNames: ReadonlySet<string>,
 ): string {
   return replaceComposerSkillTokens(prompt, (token) =>
-    skillNames.has(token.value) ? `/${token.value}` : token.source,
+    // Whitespace would turn the rest of the catalog name into command arguments.
+    !/\s/u.test(token.value) && skillNames.has(token.value) ? `/${token.value}` : token.source,
   );
 }

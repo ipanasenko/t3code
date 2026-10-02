@@ -38,7 +38,9 @@ export interface ClaudeSkillDispatch {
  * Split `prompt` around the last `$skill` mention that names a known skill.
  * Returns `undefined` when there is nothing to dispatch, in which case the
  * prompt should go out unchanged. Mentions that do not match a discovered
- * skill stay literal: a `$HOME` in prose must not become a command.
+ * skill stay literal: a `$HOME` in prose must not become a command. Names
+ * containing whitespace also stay literal because slash commands cannot
+ * preserve them as one command name.
  */
 export function planClaudeSkillDispatch(
   prompt: string,
@@ -46,7 +48,8 @@ export function planClaudeSkillDispatch(
 ): ClaudeSkillDispatch | undefined {
   const mentions = collectComposerSkillTokens(prompt).flatMap((token) => {
     const name = token.value;
-    if (!skillNames.has(name)) return [];
+    // Native slash invocations separate the command name from arguments at whitespace.
+    if (/\s/u.test(name) || !skillNames.has(name)) return [];
     return [{ name, start: token.start, end: token.end }];
   });
   const last = mentions.at(-1);

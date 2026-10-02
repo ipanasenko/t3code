@@ -6,24 +6,45 @@ const SKILLS = new Set(["2spec", "implement", "review", "re-release-version"]);
 
 describe("planClaudeSkillDispatch", () => {
   it.each([
+    ["Review\tUI", '$"Review\tUI"'],
+    ["Review\u00a0UI", '$"Review\u00a0UI"'],
     ["Review\nUI", '$"Review\\nUI"'],
     ["Review\rUI", '$"Review\\rUI"'],
     ["Review\r\nUI", '$"Review\\r\\nUI"'],
-  ])("dispatches the exact catalog name %j from an escaped token", (name, source) => {
-    expect(planClaudeSkillDispatch(`Use ${source} next`, new Set([name]))).toEqual({
-      leadingText: "Use",
-      commandText: `/${name} next`,
-      skillName: name,
+  ])("leaves the whitespace-containing catalog name %j as literal text", (name, source) => {
+    expect(planClaudeSkillDispatch(`Use ${source} next`, new Set([name]))).toBeUndefined();
+  });
+
+  it("does not invoke a multiword skill's first word as a different command", () => {
+    expect(
+      planClaudeSkillDispatch('use $"Poteto Mode" for this', new Set(["Poteto Mode", "Poteto"])),
+    ).toBeUndefined();
+  });
+
+  it("preserves multiword references around a dispatchable skill", () => {
+    const names = new Set([...SKILLS, "Poteto Mode", "Poteto"]);
+    expect(planClaudeSkillDispatch('$"Poteto Mode" then $review this', names)).toEqual({
+      leadingText: '$"Poteto Mode" then',
+      commandText: "/review this",
+      skillName: "review",
+    });
+    expect(planClaudeSkillDispatch('$review then $"Poteto Mode"', names)).toEqual({
+      leadingText: undefined,
+      commandText: '/review then $"Poteto Mode"',
+      skillName: "review",
+    });
+    expect(planClaudeSkillDispatch('$review then $"Poteto Mode" and $implement', names)).toEqual({
+      leadingText: '/review then $"Poteto Mode" and',
+      commandText: "/implement",
+      skillName: "implement",
     });
   });
 
-  it("dispatches a quoted multiword skill by its full catalog name", () => {
-    expect(
-      planClaudeSkillDispatch('use $"Poteto Mode" for this', new Set(["Poteto Mode", "Poteto"])),
-    ).toEqual({
-      leadingText: "use",
-      commandText: "/Poteto Mode for this",
-      skillName: "Poteto Mode",
+  it("dispatches a quoted single-word skill", () => {
+    expect(planClaudeSkillDispatch('$"review" this', SKILLS)).toEqual({
+      leadingText: undefined,
+      commandText: "/review this",
+      skillName: "review",
     });
   });
 
