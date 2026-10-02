@@ -11,6 +11,19 @@ import { remarkSkillTokens } from "./skillMarkdownSyntax.ts";
 const parser = unified().use(remarkParse).use(remarkSkillTokens).freeze();
 
 describe("quoted skill Markdown syntax", () => {
+  it.each(["\t", "\u00a0"])("preserves tokens beside %j whitespace", (separator) => {
+    const name = "Review \\Tools";
+    const paragraph = parser.parse(
+      `Use${separator}${serializeComposerSkillToken(name)}${separator}next`,
+    ).children[0];
+    if (paragraph?.type !== "paragraph") throw new Error("Missing paragraph");
+    const text = paragraph.children
+      .filter((child) => child.type === "text")
+      .map((child) => child.value)
+      .join("");
+    expect(collectComposerSkillTokens(text).map((skill) => skill.value)).toEqual([name]);
+  });
+
   it.each(['Review "UI"', "Review \\Tools", "Review **UI**", "Review [UI](file)"])(
     "preserves %s as literal source while parsing surrounding Markdown",
     (name) => {

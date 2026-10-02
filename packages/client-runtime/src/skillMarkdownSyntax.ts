@@ -1,5 +1,5 @@
 import { collectComposerSkillTokens } from "@t3tools/shared/composerInlineTokens";
-import { markdownLineEnding, unicodeWhitespace } from "micromark-util-character";
+import { markdownLineEnding, markdownSpace, unicodeWhitespace } from "micromark-util-character";
 import type { Extension, Tokenizer } from "micromark-util-types";
 import type { Processor } from "unified";
 
@@ -18,6 +18,7 @@ const tokenize: Tokenizer = function (effects, ok, nok) {
       code !== 36 ||
       (this.previous !== null &&
         !markdownLineEnding(this.previous) &&
+        !markdownSpace(this.previous) &&
         !unicodeWhitespace(this.previous))
     ) {
       return nok(code);
@@ -48,7 +49,13 @@ const tokenize: Tokenizer = function (effects, ok, nok) {
   };
 
   const afterQuote = (code: number | null) => {
-    if (code !== null && !markdownLineEnding(code) && !unicodeWhitespace(code)) return nok(code);
+    if (
+      code !== null &&
+      !markdownLineEnding(code) &&
+      !markdownSpace(code) &&
+      !unicodeWhitespace(code)
+    )
+      return nok(code);
     return collectComposerSkillTokens(this.sliceSerialize(token)).length === 1
       ? ok(code)
       : nok(code);
