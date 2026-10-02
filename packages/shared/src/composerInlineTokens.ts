@@ -56,9 +56,14 @@ export function collectComposerSkillTokens(
   return Array.from(text.matchAll(SKILL_TOKEN_REGEX), (match) => {
     const start = (match.index ?? 0) + (match[1]?.length ?? 0);
     const end = (match.index ?? 0) + match[0].length;
+    const quotedValue = match[2]?.replace(/\\(.)/g, (escape) => {
+      if (escape === "\\n") return "\n";
+      if (escape === "\\r") return "\r";
+      return escape.slice(1);
+    });
     return {
       type: "skill",
-      value: match[2] !== undefined ? match[2].replace(/\\(.)/g, "$1") : (match[3] ?? ""),
+      value: quotedValue ?? match[3] ?? "",
       source: text.slice(start, end),
       start,
       end,
@@ -72,7 +77,7 @@ export function serializeComposerSkillToken(name: string): string {
   const token = collectComposerSkillTokens(bare)[0];
   return token?.value === name && token.source === bare
     ? bare
-    : `$"${name.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
+    : `$"${name.replaceAll("\\", "\\\\").replaceAll('"', '\\"').replaceAll("\r", "\\r").replaceAll("\n", "\\n")}"`;
 }
 
 /** Translate complete skill references without changing their surrounding text. */

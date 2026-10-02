@@ -39,21 +39,26 @@ describe("quoted skill Markdown syntax", () => {
     expect(collectComposerSkillTokens(text).map((skill) => skill.value)).toEqual([name]);
   });
 
-  it.each(['Review "UI"', "Review \\Tools", "Review **UI**", "Review [UI](file)"])(
-    "preserves %s as literal source while parsing surrounding Markdown",
-    (name) => {
-      const token = serializeComposerSkillToken(name);
-      const paragraph = parser.parse(`**Use** ${token} next`).children[0];
-      expect(paragraph?.type).toBe("paragraph");
-      if (paragraph?.type !== "paragraph") throw new Error("Missing paragraph");
-      expect(paragraph.children[0]?.type).toBe("strong");
-      const text = paragraph.children
-        .filter((child) => child.type === "text")
-        .map((child) => child.value)
-        .join("");
-      expect(collectComposerSkillTokens(text).map((skill) => skill.value)).toEqual([name]);
-    },
-  );
+  it.each([
+    'Review "UI"',
+    "Review \\Tools",
+    "Review **UI**",
+    "Review [UI](file)",
+    "Review\nUI",
+    "Review\rUI",
+    "Review\r\nUI",
+  ])("preserves %s as literal source while parsing surrounding Markdown", (name) => {
+    const token = serializeComposerSkillToken(name);
+    const paragraph = parser.parse(`**Use** ${token} next`).children[0];
+    expect(paragraph?.type).toBe("paragraph");
+    if (paragraph?.type !== "paragraph") throw new Error("Missing paragraph");
+    expect(paragraph.children[0]?.type).toBe("strong");
+    const text = paragraph.children
+      .filter((child) => child.type === "text")
+      .map((child) => child.value)
+      .join("");
+    expect(collectComposerSkillTokens(text).map((skill) => skill.value)).toEqual([name]);
+  });
 
   it("keeps quoted skill examples inside inline and fenced code as code", () => {
     const token = serializeComposerSkillToken('Review "UI"');

@@ -5,6 +5,18 @@ import { planClaudeSkillDispatch } from "./ClaudeSkillDispatch.ts";
 const SKILLS = new Set(["2spec", "implement", "review", "re-release-version"]);
 
 describe("planClaudeSkillDispatch", () => {
+  it.each([
+    ["Review\nUI", '$"Review\\nUI"'],
+    ["Review\rUI", '$"Review\\rUI"'],
+    ["Review\r\nUI", '$"Review\\r\\nUI"'],
+  ])("dispatches the exact catalog name %j from an escaped token", (name, source) => {
+    expect(planClaudeSkillDispatch(`Use ${source} next`, new Set([name]))).toEqual({
+      leadingText: "Use",
+      commandText: `/${name} next`,
+      skillName: name,
+    });
+  });
+
   it("dispatches a quoted multiword skill by its full catalog name", () => {
     expect(
       planClaudeSkillDispatch('use $"Poteto Mode" for this', new Set(["Poteto Mode", "Poteto"])),

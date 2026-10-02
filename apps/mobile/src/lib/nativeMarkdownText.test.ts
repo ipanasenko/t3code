@@ -68,84 +68,89 @@ describe("native quoted skill preservation", () => {
     expect(document.end).toBe(byteLength(source));
   });
 
-  it.each(["Foo*Bar*", 'Review "UI"', "Review \\Tools", "Review <mark>&amp;</mark>"])(
-    "renders and copies %s after native Markdown interpretation",
-    (name) => {
-      const source = `Use ${serializeComposerSkillToken(name)} next`;
-      // The native MD4C parser consumes escapes and creates an italic node for *Bar*.
-      const raw: MarkdownNode =
-        name === "Foo*Bar*"
-          ? {
-              type: "document",
-              beg: 0,
-              end: 20,
-              children: [
-                {
-                  type: "paragraph",
-                  beg: 0,
-                  end: 20,
-                  children: [
-                    { type: "text", beg: 0, end: 9, content: 'Use $"Foo' },
-                    {
-                      type: "italic",
-                      beg: 9,
-                      end: 14,
-                      children: [{ type: "text", beg: 10, end: 13, content: "Bar" }],
-                    },
-                    { type: "text", beg: 14, end: 20, content: '" next' },
-                  ],
-                },
-              ],
-            }
-          : {
-              type: "document",
-              beg: 0,
-              end: source.length,
-              children: [
-                {
-                  type: "paragraph",
-                  beg: 0,
-                  end: source.length,
-                  children: [
-                    {
-                      type: "text",
-                      beg: 0,
-                      end: source.length,
-                      content: source.replace(/\\([\\"])/g, "$1"),
-                    },
-                  ],
-                },
-              ],
-            };
-      const parse = vi
-        .fn<(value: string) => MarkdownNode>()
-        .mockReturnValueOnce(raw)
-        .mockImplementation((value) => ({
-          type: "document",
-          beg: 0,
-          end: value.length,
-          children: [
-            {
-              type: "paragraph",
-              beg: 0,
-              end: value.length,
-              children: [{ type: "text", beg: 0, end: value.length, content: value }],
-            },
-          ],
-        }));
-      const document = parseNativeMarkdownWithSkillTokens(source, parse);
-      const runs = nativeMarkdownDocumentRuns(document, [
-        { name, displayName: "Expected skill" },
-        { name: "Review Tools", displayName: "Wrong skill" },
-      ]);
-      const chips = runs.filter((run) => run.skillName);
-      expect(chips.map((run) => run.skillName)).toEqual([name]);
-      expect(
-        nativeMarkdownContextCopyRanges([{ run: chips[0]!, text: "\uFFFC", inlineImageLength: 0 }]),
-      ).toEqual([{ start: 0, end: 1, text: serializeComposerSkillToken(name) }]);
-      expect(runs.map((run) => run.text).join("")).toBe(source);
-    },
-  );
+  it.each([
+    "Foo*Bar*",
+    'Review "UI"',
+    "Review \\Tools",
+    "Review <mark>&amp;</mark>",
+    "Review\nUI",
+    "Review\rUI",
+    "Review\r\nUI",
+  ])("renders and copies %s after native Markdown interpretation", (name) => {
+    const source = `Use ${serializeComposerSkillToken(name)} next`;
+    // The native MD4C parser consumes escapes and creates an italic node for *Bar*.
+    const raw: MarkdownNode =
+      name === "Foo*Bar*"
+        ? {
+            type: "document",
+            beg: 0,
+            end: 20,
+            children: [
+              {
+                type: "paragraph",
+                beg: 0,
+                end: 20,
+                children: [
+                  { type: "text", beg: 0, end: 9, content: 'Use $"Foo' },
+                  {
+                    type: "italic",
+                    beg: 9,
+                    end: 14,
+                    children: [{ type: "text", beg: 10, end: 13, content: "Bar" }],
+                  },
+                  { type: "text", beg: 14, end: 20, content: '" next' },
+                ],
+              },
+            ],
+          }
+        : {
+            type: "document",
+            beg: 0,
+            end: source.length,
+            children: [
+              {
+                type: "paragraph",
+                beg: 0,
+                end: source.length,
+                children: [
+                  {
+                    type: "text",
+                    beg: 0,
+                    end: source.length,
+                    content: source.replace(/\\([\\"])/g, "$1"),
+                  },
+                ],
+              },
+            ],
+          };
+    const parse = vi
+      .fn<(value: string) => MarkdownNode>()
+      .mockReturnValueOnce(raw)
+      .mockImplementation((value) => ({
+        type: "document",
+        beg: 0,
+        end: value.length,
+        children: [
+          {
+            type: "paragraph",
+            beg: 0,
+            end: value.length,
+            children: [{ type: "text", beg: 0, end: value.length, content: value }],
+          },
+        ],
+      }));
+    const document = parseNativeMarkdownWithSkillTokens(source, parse);
+    const runs = nativeMarkdownDocumentRuns(document, [
+      { name, displayName: "Expected skill" },
+      { name: "Review Tools", displayName: "Wrong skill" },
+    ]);
+    const chips = runs.filter((run) => run.skillName);
+    expect(chips.map((run) => run.skillName)).toEqual([name]);
+    expect(
+      nativeMarkdownContextCopyRanges([{ run: chips[0]!, text: "\uFFFC", inlineImageLength: 0 }]),
+    ).toEqual([{ start: 0, end: 1, text: serializeComposerSkillToken(name) }]);
+    expect(runs.map((run) => run.text).join("")).toBe(source);
+  });
 });
 
 describe("nativeMarkdownTextRuns", () => {

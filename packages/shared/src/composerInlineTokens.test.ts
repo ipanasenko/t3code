@@ -242,6 +242,11 @@ describe("serializeComposerSkillToken", () => {
     ["2spec", "$2spec"],
     ["plugin:review", "$plugin:review"],
     ["技能", '$"技能"'],
+    ["Review\nUI", '$"Review\\nUI"'],
+    ["Review\rUI", '$"Review\\rUI"'],
+    ["Review\r\nUI", '$"Review\\r\\nUI"'],
+    [String.raw`Review\nUI`, '$"Review\\\\nUI"'],
+    [String.raw`Review\rUI`, '$"Review\\\\rUI"'],
   ])("preserves the full catalog name %s", (name, expected) => {
     const source = serializeComposerSkillToken(name);
     expect(source).toBe(expected);
