@@ -7,6 +7,21 @@ import {
 } from "./composerInlineTokens.ts";
 
 describe("collectComposerInlineTokens", () => {
+  it.each(["Build @docs now", "Build [a.ts](a.ts) now", 'Build $ui and $"Nested name" now'])(
+    "keeps inline references inside %s within one skill chip",
+    (name) => {
+      const source = serializeComposerSkillToken(name);
+      const tokens = collectComposerInlineTokens(`Use ${source} next`);
+      expect(tokens).toEqual([
+        { type: "skill", value: name, source, start: 4, end: 4 + source.length },
+      ]);
+      expect(collectComposerInlineTokens(`Use ${source}`)).toEqual([]);
+      expect(
+        collectComposerInlineTokens(`Use ${source}`, { preserveTrailingFrom: tokens }),
+      ).toEqual(tokens);
+    },
+  );
+
   it("keeps a quoted multiword skill in one atomic source range", () => {
     expect(collectComposerInlineTokens('Use $"Poteto Mode" next')).toEqual([
       { type: "skill", value: "Poteto Mode", source: '$"Poteto Mode"', start: 4, end: 18 },

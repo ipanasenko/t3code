@@ -11,11 +11,26 @@ import { remarkSkillTokens } from "./skillMarkdownSyntax.ts";
 const parser = unified().use(remarkParse).use(remarkSkillTokens).freeze();
 
 describe("quoted skill Markdown syntax", () => {
-  it.each(["\t", "\u00a0"])("preserves tokens beside %j whitespace", (separator) => {
-    const name = "Review \\Tools";
-    const paragraph = parser.parse(
-      `Use${separator}${serializeComposerSkillToken(name)}${separator}next`,
-    ).children[0];
+  it.each(["\t", "\u00a0", "\v", "\uFEFF"])(
+    "preserves tokens beside %j whitespace",
+    (separator) => {
+      const name = "Review \\Tools";
+      const paragraph = parser.parse(
+        `Use${separator}${serializeComposerSkillToken(name)}${separator}next`,
+      ).children[0];
+      if (paragraph?.type !== "paragraph") throw new Error("Missing paragraph");
+      const text = paragraph.children
+        .filter((child) => child.type === "text")
+        .map((child) => child.value)
+        .join("");
+      expect(collectComposerSkillTokens(text).map((skill) => skill.value)).toEqual([name]);
+    },
+  );
+
+  it.each(["€", "£", "¥", "₹", "₩", "₿", "𑿝"])("preserves %s quoted skill aliases", (prefix) => {
+    const name = "Review **UI**";
+    const source = `${prefix}${serializeComposerSkillToken(name).slice(1)}`;
+    const paragraph = parser.parse(`Use ${source} next`).children[0];
     if (paragraph?.type !== "paragraph") throw new Error("Missing paragraph");
     const text = paragraph.children
       .filter((child) => child.type === "text")

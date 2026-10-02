@@ -1,5 +1,5 @@
 import { collectComposerSkillTokens } from "@t3tools/shared/composerInlineTokens";
-import { markdownLineEnding, markdownSpace, unicodeWhitespace } from "micromark-util-character";
+import { markdownLineEnding, markdownSpace } from "micromark-util-character";
 import type { Extension, Tokenizer } from "micromark-util-types";
 import type { Processor } from "unified";
 
@@ -12,24 +12,31 @@ declare module "micromark-util-types" {
 const tokenize: Tokenizer = function (effects, ok, nok) {
   let token: ReturnType<typeof effects.enter>;
   let escaped = false;
+  let prefix = "";
 
   const start = (code: number | null) => {
-    if (
-      code !== 36 ||
-      (this.previous !== null &&
-        !markdownLineEnding(this.previous) &&
-        !markdownSpace(this.previous) &&
-        !unicodeWhitespace(this.previous))
-    ) {
+    if (code === null || (this.previous !== null && !isWhitespace(this.previous))) {
       return nok(code);
     }
     token = effects.enter("quotedSkill");
     effects.consume(code);
+    prefix = String.fromCharCode(code);
     return openingQuote;
   };
 
   const openingQuote = (code: number | null) => {
-    if (code !== 34) return nok(code);
+    if (
+      code !== null &&
+      prefix.length === 1 &&
+      /[\uD800-\uDBFF]/u.test(prefix) &&
+      code >= 0xdc00 &&
+      code <= 0xdfff
+    ) {
+      prefix += String.fromCharCode(code);
+      effects.consume(code);
+      return openingQuote;
+    }
+    if (code !== 34 || !/^\p{Sc}$/u.test(prefix)) return nok(code);
     effects.consume(code);
     return content;
   };
@@ -49,13 +56,7 @@ const tokenize: Tokenizer = function (effects, ok, nok) {
   };
 
   const afterQuote = (code: number | null) => {
-    if (
-      code !== null &&
-      !markdownLineEnding(code) &&
-      !markdownSpace(code) &&
-      !unicodeWhitespace(code)
-    )
-      return nok(code);
+    if (code !== null && !isWhitespace(code)) return nok(code);
     return collectComposerSkillTokens(this.sliceSerialize(token)).length === 1
       ? ok(code)
       : nok(code);
@@ -63,7 +64,21 @@ const tokenize: Tokenizer = function (effects, ok, nok) {
   return start;
 };
 
-const syntax: Extension = { text: { 36: { tokenize } } };
+function isWhitespace(code: number): boolean {
+  return (
+    markdownLineEnding(code) ||
+    markdownSpace(code) ||
+    (code >= 0 && /\s/u.test(String.fromCharCode(code)))
+  );
+}
+
+// Micromark dispatches by the first UTF-16 unit, including for supplementary currency symbols.
+const CURRENCY_SYMBOLS = "$¢£¤¥֏؋߾߿৲৳৻૱௹฿៛₠₡₢₣₤₥₦₧₨₩₪₫€₭₮₯₰₱₲₳₴₵₶₷₸₹₺₻₼₽₾₿⃀⃁꠸﷼﹩＄￠￡￥￦𑿝𑿞𑿟𑿠𞋿𞲰";
+const syntax: Extension = {
+  text: Object.fromEntries(
+    Array.from(CURRENCY_SYMBOLS, (symbol) => [symbol.charCodeAt(0), { tokenize }]),
+  ),
+};
 
 /** Preserve quoted skill source before Markdown consumes escapes or emphasis. */
 function attachSkillTokens(this: Processor) {

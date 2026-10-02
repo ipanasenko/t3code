@@ -149,7 +149,7 @@ export function collectComposerInlineTokens(
 ): ReadonlyArray<ComposerInlineToken> {
   const matches = collectMentionTokens(text);
 
-  matches.push(...collectComposerSkillTokens(text).filter((token) => token.end < text.length));
+  matches.push(...collectComposerSkillTokens(text));
 
   for (const token of options.preserveTrailingFrom ?? []) {
     if (
@@ -164,5 +164,22 @@ export function collectComposerInlineTokens(
     }
   }
 
-  return [...matches].sort((left, right) => left.start - right.start);
+  let end = 0;
+  return matches
+    .sort((left, right) => left.start - right.start || right.end - left.end)
+    .filter((token) => {
+      if (token.start < end) return false;
+      end = token.end;
+      return (
+        token.type !== "skill" ||
+        token.end < text.length ||
+        options.preserveTrailingFrom?.some(
+          (previous) =>
+            previous.type === token.type &&
+            previous.source === token.source &&
+            previous.start === token.start &&
+            previous.end === token.end,
+        )
+      );
+    });
 }
