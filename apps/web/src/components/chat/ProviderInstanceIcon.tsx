@@ -1,6 +1,9 @@
 import { type CSSProperties, memo } from "react";
 
-import { providerInstanceInitials } from "@t3tools/client-runtime/state/provider-instance-display";
+import {
+  providerAccentForegroundColor,
+  providerInstanceInitials,
+} from "@t3tools/client-runtime/state/provider-instance-display";
 
 import { ProviderDriverKind } from "@t3tools/contracts";
 import {
@@ -74,7 +77,10 @@ export const ProviderInstanceIcon = memo(function ProviderInstanceIcon(props: {
   const Icon = PROVIDER_ICON_BY_PROVIDER[props.driverKind] ?? null;
   const indicatorBackground = props.indicatorBackground ?? "var(--card)";
   const accentStyle = props.accentColor
-    ? ({ "--provider-accent": props.accentColor } as CSSProperties)
+    ? ({
+        "--provider-accent": props.accentColor,
+        "--provider-accent-foreground": providerAccentForegroundColor(props.accentColor),
+      } as CSSProperties)
     : undefined;
   const badgeContent = props.badgeContent ?? "initials";
   const isAcpRegistry = props.driverKind === "acpRegistry";
@@ -123,7 +129,7 @@ export const ProviderInstanceIcon = memo(function ProviderInstanceIcon(props: {
           className={cn(
             "pointer-events-none absolute right-0 bottom-0 z-10 flex h-3.5 min-w-3.5 items-center justify-center rounded-full border px-0.5 text-4xs font-semibold leading-none shadow-sm",
             props.accentColor
-              ? "bg-(--provider-accent) text-white"
+              ? "bg-(--provider-accent) text-(--provider-accent-foreground)"
               : "bg-card text-muted-foreground",
             props.badgeClassName,
           )}
