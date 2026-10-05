@@ -2,6 +2,7 @@ import { Image } from "expo-image";
 import { Path, Svg } from "react-native-svg";
 import { View } from "react-native";
 import {
+  normalizeProviderAccentColor,
   providerAccentForegroundColor,
   providerInstanceInitials,
 } from "@t3tools/client-runtime/state/provider-instance-display";
@@ -174,6 +175,7 @@ export function ProviderInstanceIcon(props: {
   readonly showBadge?: boolean;
   readonly surfaceColor: string;
 }) {
+  const accentColor = normalizeProviderAccentColor(props.accentColor);
   return (
     <View style={{ position: "relative" }}>
       <View style={{ opacity: 0.6 }}>
@@ -181,7 +183,7 @@ export function ProviderInstanceIcon(props: {
       </View>
       {props.showBadge ? (
         <View
-          className={props.accentColor ? undefined : "bg-card"}
+          className={accentColor ? undefined : "bg-card"}
           style={{
             position: "absolute",
             right: -3,
@@ -192,20 +194,18 @@ export function ProviderInstanceIcon(props: {
             borderRadius: 999,
             borderWidth: 1,
             borderColor: props.surfaceColor,
-            backgroundColor: props.accentColor,
+            backgroundColor: accentColor,
             alignItems: "center",
             justifyContent: "center",
           }}
         >
           <Text
-            className={props.accentColor ? undefined : "text-foreground-muted"}
+            className={accentColor ? undefined : "text-foreground-muted"}
             style={{
               fontSize: 7,
               fontWeight: "600",
               lineHeight: 9,
-              color: props.accentColor
-                ? providerAccentForegroundColor(props.accentColor)
-                : undefined,
+              color: accentColor ? providerAccentForegroundColor(accentColor) : undefined,
             }}
           >
             {providerInstanceInitials(props.displayName)}
