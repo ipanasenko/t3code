@@ -1,4 +1,4 @@
-import { collectComposerSkillTokens } from "@t3tools/shared/composerInlineTokens";
+import { collectComposerSkillTokens } from "./composerInlineTokens.ts";
 import { markdownLineEnding, markdownSpace } from "micromark-util-character";
 import type { Extension, Tokenizer } from "micromark-util-types";
 import type { Processor } from "unified";

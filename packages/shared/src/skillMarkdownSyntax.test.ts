@@ -1,7 +1,4 @@
-import {
-  collectComposerSkillTokens,
-  serializeComposerSkillToken,
-} from "@t3tools/shared/composerInlineTokens";
+import { collectComposerSkillTokens, serializeComposerSkillToken } from "./composerInlineTokens.ts";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
 import { describe, expect, it } from "vite-plus/test";
